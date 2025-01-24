@@ -78,15 +78,13 @@ def main(**kwargs):
         cnas['tumorTypeSummary'] = ""
         cnas['treatments'] = ""
 
+        # Query in chunks of 5000
         chunks = [cnas[x:x + 4999] for x in range(0, len(cnas), 5000)]
         for c in chunks:
             query_oncokb_cnas_to_csv(c)
 
 
     if kwargs["oncokbsnv"] and kwargs["somatic_variants"] and kwargs["all"]:
-        #for pid in ClinicalData.objects.order_by().values('patient_id').distinct():
-        #    cnas = cna_annotation.objects.filter(patient_id=pid.get('patient_id'))
-        #   if cnas:
         snvs = pd.read_csv(kwargs["somatic_variants"], sep="\t")
 
         snvs['tumorType'] = ""
@@ -102,6 +100,7 @@ def main(**kwargs):
         snvs['tumorTypeSummary'] = ""
         snvs['treatments'] = ""
 
+        # Query in chunks of 5000
         chunks = [snvs[x:x + 4999] for x in range(0, len(snvs), 5000)]
         for c in chunks:
             query_oncokb_somatic_mutations(c)

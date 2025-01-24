@@ -15,4 +15,4 @@ sample=$(sed -n ${SLURM_ARRAY_TASK_ID}p $1)
 echo $sample
 source /mnt/storageSmall8/work/aimaaral/oncodash/venv/bin/activate
 
-srun python /mnt/storageSmall8/work/aimaaral/oncodash/wgs_data_adapter.py --copy_number_alterations /mnt/storageSmall8/work/aimaaral/oncodash/cnGenesFolder/${sample}.cnGenes.csv --ascatestimates /mnt/storageSmall8/work/aimaaral/oncodash/combinedAscatEstimates.csv --output /mnt/storageSmall8/work/aimaaral/oncodash/cna_annotations/${sample}.csv --cores 1
+srun python /mnt/storageSmall8/work/aimaaral/oncodash/local_annotator.py --copy_number_alterations /mnt/storageSmall8/work/aimaaral/oncodash/cnGenesFolder/${sample}.cnGenes.csv --ascatestimates /mnt/storageSmall8/work/aimaaral/oncodash/combinedAscatEstimates.csv --output /mnt/storageSmall8/work/aimaaral/oncodash/cna_annotations/${sample}.csv --cores 1
