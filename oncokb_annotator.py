@@ -7,6 +7,17 @@ import httpx
 ONCOKB_TOKEN = ""
 
 def handle_treatments_oncokb(jsondata, alt_type, alteration):
+    """
+        Handle treatments from OncoKB data.
+
+        Parameters:
+        jsondata (list): List of dictionaries containing treatment data.
+        alt_type (str): Alteration type.
+        alteration (str): Alteration description.
+
+        Returns:
+        list: A list of Series containing treatment information.
+    """
     treatments = []
     for row in jsondata:
         drugs = ""
@@ -34,6 +45,15 @@ def handle_treatments_oncokb(jsondata, alt_type, alteration):
     return treatments
 
 def handle_drugs_field(jsondata):
+    """
+        Handle the drugs field from OncoKB data.
+
+        Parameters:
+        jsondata (list): List of dictionaries containing drug data.
+
+        Returns:
+        str: A semicolon-separated string of drug names.
+    """
     if jsondata:
         drugs = ""
         for rec in jsondata:
@@ -48,18 +68,13 @@ def handle_drugs_field(jsondata):
 def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame):
 
     """
-    This function queries the OncoKB API to get annotations for a given copy number alteration (CNA)
-    and tumor type. It then saves the annotations to the database.
+    Query OncoKB API to get annotations for copy number alterations (CNAs) and save the results to a CSV file.
 
-    Args:
-    cna (CopyNumberAlteration): A copy number alteration object.
-    tumorType (str): The tumor type for which the annotations are to be retrieved.
+    Parameters:
+    cna_annotations (DataFrame): DataFrame containing CNA annotations.
 
     Returns:
-    None
-
-    Raises:
-    None
+    Response: The HTTP response from the OncoKB API.
     """
 
     token = ONCOKB_TOKEN
@@ -150,18 +165,15 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame):
 
 def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame):
     """
-    This function queries the OncoKB API to get information about a somatic mutation.
+    Query OncoKB API to get annotations for somatic mutations and save the results to a CSV file.
 
-    Args:
-    snv (SomaticVariant): A SomaticVariant object representing the somatic mutation.
-    tumorType (str): The type of tumor for which the mutation information is being queried.
+    Parameters:
+    snv_annotations (DataFrame): DataFrame containing SNV annotations.
 
     Returns:
     None
-
-    Raises:
-    None
     """
+
     token = ONCOKB_TOKEN
     header = {"accept":"application/json", 'Content-Type': 'application/json', "Authorization":'Bearer '+token}
     request_url = "https://www.oncokb.org/api/v1/annotate/mutations/byGenomicChange"

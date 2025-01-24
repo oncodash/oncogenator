@@ -1,0 +1,8 @@
+pandas
+dask
+numpy
+scipy
+networkx
+httpx
+argparse
+python-decouple

@@ -10,9 +10,10 @@
 #SBATCH --array=1-850
 
 echo $1
+ODANNOTATOR_PATH=""
 pid=$(sed -n ${SLURM_ARRAY_TASK_ID}p $1)
 
 echo $pid
-source /mnt/storageSmall8/work/aimaaral/oncodash/venv/bin/activate
+source $ODANNOTATOR_PATH/venv/bin/activate
 
-srun python /mnt/storageSmall8/work/aimaaral/oncodash/local_annotator.py --somatic_variants /mnt/storageSmall8/work/aimaaral/oncodash/byPatient_CSVs/ --cn_annotations /mnt/storageSmall8/work/aimaaral/oncodash/cnGenesFolder/ --ascatestimates /mnt/storageSmall8/work/aimaaral/oncodash/combinedAscatEstimates.csv --output /mnt/storageSmall8/work/aimaaral/oncodash/snv_annotations/${pid}.csv --pid ${pid} --cores 1
+srun python $ODANNOTATOR_PATH/main.py --annotator local --somatic_variants /mnt/storageSmall8/work/aimaaral/oncodash/byPatient_CSVs/ --cn_annotations /mnt/storageSmall8/work/aimaaral/oncodash/cnGenesFolder/ --ascatestimates /mnt/storageSmall8/work/aimaaral/oncodash/combinedAscatEstimates.csv --output /mnt/storageSmall8/work/aimaaral/oncodash/snv_annotations/${pid}.csv --pid ${pid} --cores 1

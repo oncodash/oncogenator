@@ -28,6 +28,15 @@ class cgi2oncokb_level(Enum):
         return str(self.value)
 
 def map_cgi_evidence(biomarker):
+    """
+        Map CGI evidence to OncoKB levels.
+
+        Parameters:
+        biomarker (Series): A Series containing biomarker data.
+
+        Returns:
+        str: Mapped OncoKB level.
+    """
     evidence = biomarker['Evidence']
     response = biomarker['Response']
     if pd.isna(evidence):
@@ -42,6 +51,17 @@ def map_cgi_evidence(biomarker):
     return None
 
 def handle_treatments_cgi(row, alt_type, alteration):
+    """
+        Handle treatments from CGI data.
+
+        Parameters:
+        row (Series): A Series containing treatment data.
+        alt_type (str): Alteration type.
+        alteration (str): Alteration description.
+
+        Returns:
+        Series: A Series containing treatment information.
+    """
 
     drugs = row['Drugs']
     pmids = row['Source']
@@ -62,6 +82,19 @@ def handle_treatments_cgi(row, alt_type, alteration):
     })
 
 def generate_cgi_cna_file_from_list(genelist):
+    """
+        Launch a CGI job with multiple variant types.
+
+        Parameters:
+        mutations_file (str): Path to the mutation file.
+        cnas_file (str): Path to the CNAs file.
+        transloc_file (str): Path to the translocation file.
+        cancer_type (str): Type of cancer.
+        reference (str): Reference genome.
+
+        Returns:
+        str: Job ID if the request is successful, otherwise 0.
+    """
     header = "gene\tcna\n"
     with open("./tmp/cnas.ext", "w") as file2:
         file2.write(header)
@@ -148,12 +181,15 @@ def launch_cgi_job_with_mulitple_variant_types(mutations_file, cnas_file, transl
 
 def query_cgi_job(jobid, snv_annotations: pd.DataFrame = None, cna_annotations: pd.DataFrame = None):
     """
-      Query the CGI API with a job id and save the results to the database.
+    Query the CGI API with a job ID and save the results to the database.
 
-      Parameters:
-          patient_id (int): The ID of the patient for whom the job was run.
-          jobid (str): The job ID for the CGI job to query.
+    Parameters:
+    jobid (str): The job ID for the CGI job to query.
+    snv_annotations (DataFrame): DataFrame containing SNV annotations.
+    cna_annotations (DataFrame): DataFrame containing CNA annotations.
 
+    Returns:
+    int: 1 if successful, otherwise 0.
     """
     request_url = "https://www.cancergenomeinterpreter.org/api/v1/"
     print("Request CGI job by id")
@@ -304,7 +340,14 @@ def generate_cgi_cna_file_from_list(genelist):
         file2.close()
 
 def generate_temp_cgi_query_files(snv_annotations: pd.DataFrame = None, cna_annotations: pd.DataFrame = None, translocs: pd.DataFrame = None):
+    """
+        Generate temporary CGI query files from annotations.
 
+        Parameters:
+        snv_annotations (DataFrame): DataFrame containing SNV annotations.
+        cna_annotations (DataFrame): DataFrame containing CNA annotations.
+        translocs (DataFrame): DataFrame containing translocation data.
+    """
     header = "chr\tpos\tref\talt\tsample\n"
     try:
         if isinstance(snv_annotations, pd.DataFrame):
