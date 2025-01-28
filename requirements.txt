@@ -6,3 +6,6 @@ networkx
 httpx
 argparse
 python-decouple
+psutil
+pandarallel
+urllib3

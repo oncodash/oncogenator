@@ -65,7 +65,7 @@ def handle_drugs_field(jsondata):
         return None
 
 
-def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame):
+def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, i):
 
     """
     Query OncoKB API to get annotations for copy number alterations (CNAs) and save the results to a CSV file.
@@ -130,7 +130,9 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame):
 
             updatedf = cna_annotations.loc[(cna_annotations['hugoSymbol']==hugosymbol) & (cna_annotations['alteration']==alteration)]
             for indxs, row in updatedf.iterrows():
+
                 cna_annotations.at[indxs,'hugoSymbol'] = handle_string_field(rjson["query"]["hugoSymbol"])
+                cna_annotations.at[indxs,'referenceGenome'] = handle_string_field(rjson["query"]["referenceGenome"])
                 cna_annotations.at[indxs,'tumorType'] = handle_string_field(rjson["query"]["tumorType"])
                 cna_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
                 #updatedf['proteinStart'] = handle_int_field(rjson["query"]["proteinStart"])
@@ -148,22 +150,23 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame):
                 cna_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
                 cna_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
                 cna_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
-                cna_annotations.at[indxs,'treatments'] = handle_drugs_field(rjson["treatments"])
+                #cna_annotations.at[indxs,'treatments'] = handle_drugs_field(rjson["treatments"])
 
                 treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'CNA', hugosymbol + ':' + alteration))
 
             #print("Updated "+str(updatedf.count())+" CNAs")
-        cna_annotations.drop(columns=cna_annotations.columns[0], axis=1, inplace=True)
-        cna_annotations.to_csv("cna_annotated_oncokb.csv", mode="a", sep="\t")
+        #cna_annotations.drop(columns=cna_annotations.columns[0], axis=1, inplace=True)
+        header = False if i > 1 else True
+        cna_annotations.to_csv("cna_annotated_oncokb.csv", mode="a", index=False, header=header, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)
-        trdf.to_csv("treatments.csv", mode="a", sep="\t")
+        trdf.to_csv("treatments_oncokb.csv", mode="a", header=header, index=False, sep="\t")
     else:
         print("Unable to request. Response: ", response.text)
 
     return response
 
 
-def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame):
+def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, i):
     """
     Query OncoKB API to get annotations for somatic mutations and save the results to a CSV file.
 
@@ -222,11 +225,11 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame):
 
             for indxs, row in updatedf.iterrows():
                 alteration = snv_annotations.at[indxs,'hugoSymbol']+":"+chromosome+":"+str(position)+":"+reference_allele+":"+sample_allele
-                #snv_annotations.at[indxs,'hugoSymbol'] = handle_string_field(rjson["query"]["hugoSymbol"])
                 snv_annotations.at[indxs, 'alteration'] = alteration
+                snv_annotations.at[indxs, 'referenceGenome'] = handle_string_field(rjson["query"]["referenceGenome"])
                 snv_annotations.at[indxs,'tumorType'] = handle_string_field(rjson["query"]["tumorType"])
                 #snv_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
-                snv_annotations.at[indxs,'consequence_okb'] = handle_string_field(rjson["query"]["consequence"])
+                snv_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
                 snv_annotations.at[indxs,'oncogenic'] = handle_string_field(rjson["oncogenic"])
                 snv_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
                 snv_annotations.at[indxs,'gene_role'] = handle_string_field(rjson["mutationEffect"]["knownEffect"])
@@ -235,15 +238,15 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame):
                 snv_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
                 snv_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
                 snv_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
-                snv_annotations.at[indxs,'treatments'] = handle_drugs_field(rjson["treatments"])
-                alteration = snv_annotations.at[indxs, 'alteration']
+                #snv_annotations.at[indxs,'treatments'] = handle_drugs_field(rjson["treatments"])
                 treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'SNV', alteration))
 
         print(snv_annotations)
-        snv_annotations.drop(columns=snv_annotations.columns[0], axis=1, inplace=True)
-        snv_annotations.to_csv("snv_annotated_oncokb.csv", index=False, mode='a', sep="\t")
+        #snv_annotations.drop(columns=snv_annotations.columns[0], axis=1, inplace=True)
+        header = False if i > 1 else True
+        snv_annotations.to_csv("snv_annotated_oncokb.csv", mode="a", header=header, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)
-        trdf.to_csv("treatments.csv", mode="a", sep="\t")
+        trdf.to_csv("treatments_oncokb_snv.csv", header=header, mode="a", index=False, sep="\t")
         #print("Updated " + str(len(snvdf)) + " CNAs")
     else:
         print("[ERROR] Unable to request. Response: ", print(response.text))

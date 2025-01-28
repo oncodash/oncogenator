@@ -238,7 +238,8 @@ def query_cgi_job(jobid, snv_annotations: pd.DataFrame = None, cna_annotations: 
             idsplit = id.split(":")
             print(id)
             if idsplit[0] == "CNA":
-                treatment = handle_treatments_cgi(biom, 'CNA', id)
+                alteration = idsplit[1]+":"+idsplit[2]
+                treatment = handle_treatments_cgi(biom, 'CNA', alteration)
                 print(treatment)
                 treatments.append(treatment)
                 updatedf = cna_annotations.loc[
@@ -250,75 +251,68 @@ def query_cgi_job(jobid, snv_annotations: pd.DataFrame = None, cna_annotations: 
 
                 for indxs, row in updatedf.iterrows():
                     i += 1
-                    # snv_annotations.at[indxs, 'consequence_cgi'] = handle_string_field(row["CGI-Consequence"]),
                     cgi_cna = cgi_cnadf.loc[cgi_cnadf['sample'] == id].iloc[0]
-                    cna_annotations.at[indxs, 'oncogenic'] = cna_annotations.at[
-                                                                 indxs, 'oncogenic'] + " CGI:" + handle_string_field(
-                        cgi_cna["driver"])
+                    cna_annotations.at[indxs, 'oncogenic'] = handle_string_field(cgi_cna["driver"])
                     # snv_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
-                    cna_annotations.at[indxs, 'gene_role'] = cna_annotations.at[
-                                                                 indxs, 'gene_role'] + " CGI:" + handle_string_field(
-                        cgi_cna["gene_role"]),
+                    cna_annotations.at[indxs, 'gene_role'] = handle_string_field(cgi_cna["gene_role"]),
                     # snv_annotations.at[indxs,'citationPMids'] = handle_string_field(",".join(rjson["mutationEffect"]["citations"]["pmids"]))
                     # TODO: Evidence level is related to drug not alteration, show highest in level_of_evidence, treatments table include all levels
                     # level = map_cgi_evidence(biom)
                     # if level < cna_annotations.at[indxs, 'level_of_evidence']:
                     #    cna_annotations.at[indxs, 'level_of_evidence'] = "CGI:"+map_cgi_evidence(biom)
-                    evid = handle_string_field(biom['Evidence']) + "(" + handle_string_field(biom['Response']) + ")"
-                    cna_annotations.at[indxs, 'cgi_level'] = evid
+                    #evid = handle_string_field(biom['Evidence']) + "(" + handle_string_field(biom['Response']) + ")"
+                    #cna_annotations.at[indxs, 'cgi_level'] = evid
                     # snv_annotations.at[indxs, 'geneSummary'] = handle_string_field(rjson["geneSummary"])
                     # snv_annotations.at[indxs, 'variantSummary'] = handle_string_field(row["CGI-External oncogenic annotation"])
-                    cna_annotations.at[indxs, 'tumorTypeSummary'] = str(
-                        cna_annotations.at[indxs, 'tumorTypeSummary']) + " CGI:" + handle_string_field(
-                        cgi_cna["driver_statement"])
+                    cna_annotations.at[indxs, 'tumorTypeSummary'] =  handle_string_field(cgi_cna["driver_statement"])
                     # snv_annotations.at[indxs, 'treatments'] = handle_drugs_field(rjson["treatments"])
                     # alteration = snv_annotations.at[indxs, 'alteration'].value
 
             if idsplit[0] == "SNV":
-                chromosome = str(idsplit[1])
-                position = int(idsplit[2])
-                reference_allele = str(idsplit[3])
-                sample_allele = str(idsplit[4])
-                treatment = handle_treatments_cgi(biom, 'SNV', id)
+                hugoSymbol = idsplit[1]
+                chromosome = str(idsplit[2])
+                position = int(idsplit[3])
+                reference_allele = str(idsplit[4])
+                sample_allele = str(idsplit[5])
+                alteration = hugoSymbol + ":" + chromosome + ":" + str(
+                    position) + ":" + reference_allele + ":" + sample_allele
+
+                treatment = handle_treatments_cgi(biom, 'SNV', alteration)
                 print(treatment)
                 treatments.append(treatment)
+
                 # TODO: try update only if oncokb oncogenic result is None e.g. not known by oncokb
                 updatedf = snv_annotations.loc[
-                    (((snv_annotations['oncogenic'] == "Unknown") | (snv_annotations['oncogenic'].isna() == True)) & (
-                            snv_annotations['chromosome'] == chromosome) & (
-                             snv_annotations['position'] == position) & (
-                             snv_annotations['reference_allele'] == reference_allele) & (
-                             snv_annotations['sample_allele'] == sample_allele))]
+                    (((snv_annotations['oncogenic'] == "Unknown") | (snv_annotations['oncogenic'].isna() == True)) & snv_annotations['alteration'] == alteration)]
                 print("SNV updatedf:"+str(len(updatedf)))
 
                 for indxs, row in updatedf.iterrows():
-                    # snv_annotations.at[indxs, 'consequence_cgi'] = handle_string_field(row["CGI-Consequence"]),
+                    snv_annotations.at[indxs, 'consequence'] = handle_string_field(row["CGI-Consequence"]),
                     cgi_snv = cgi_snvdf.loc[cgi_snvdf['CGI-Sample ID'] == id].iloc[0]
-                    snv_annotations.at[indxs, 'oncogenic'] = snv_annotations.at[indxs, 'oncogenic'] + " CGI:" + handle_string_field(cgi_snv["CGI-Oncogenic Summary"])
+                    snv_annotations.at[indxs, 'oncogenic'] = handle_string_field(cgi_snv["CGI-Oncogenic Summary"])
                     # snv_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
-                    #snv_annotations.at[indxs, 'gene_role'] = snv_annotations.at[indxs, 'gene_role']  + " CGI:" + handle_string_field(cgi_snv["CGI-Oncogenic Prediction"]),
+                    snv_annotations.at[indxs, 'gene_role'] = handle_string_field(cgi_snv["CGI-Oncogenic Prediction"]),
                     # snv_annotations.at[indxs,'citationPMids'] = handle_string_field(",".join(rjson["mutationEffect"]["citations"]["pmids"]))
                     # TODO: Evidence level is related to drug not alteration, show highest in level_of_evidence, treatments table include all levels
                     # level = map_cgi_evidence(biom)
                     # if level < snv_annotations.at[indxs, 'level_of_evidence']:
                     # snv_annotations.at[indxs, 'level_of_evidence'] = map_cgi_evidence(biom)
-                    snv_annotations.at[indxs, 'cgi_level'] = handle_string_field(
-                        biom['Evidence']) + "(" + handle_string_field(biom['Response']) + ")"
+                    #snv_annotations.at[indxs, 'cgi_level'] = handle_string_field(biom['Evidence']) + "(" + handle_string_field(biom['Response']) + ")"
                     # snv_annotations.at[indxs, 'geneSummary'] = handle_string_field(rjson["geneSummary"])
                     # snv_annotations.at[indxs, 'variantSummary'] = handle_string_field(row["CGI-External oncogenic annotation"])
-                    # snv_annotations.at[indxs, 'tumorTypeSummary'] =  str(snv_annotations.at[indxs, 'tumorTypeSummary']) +" CGI:"+ handle_string_field(cgi_snv["driver_statement"])
-                    # snv_annotations.at[indxs, 'treatments'] = handle_drugs_field(rjson["treatments"])
+                    snv_annotations.at[indxs, 'tumorTypeSummary'] = handle_string_field(cgi_snv["driver_statement"])
+                    #snv_annotations.at[indxs, 'treatments'] = handle_drugs_field(rjson["treatments"])
                     # alteration = snv_annotations.at[indxs, 'alteration'].value
 
         if isinstance(snv_annotations, pd.DataFrame):
             #snv_annotations.drop(columns=snv_annotations.columns[0], axis=1, inplace=True)
-            snv_annotations.to_csv("snv_annotated_cgi.csv", index=False, sep="\t")
+            snv_annotations.to_csv("snv_annotated_cgi.csv", index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
             trdf = pd.DataFrame(treatments)
             trdf.to_csv("treatments_cgi_snv.csv", index=False, sep="\t")
 
         if isinstance(cna_annotations, pd.DataFrame):
         # cna_annotations.drop(columns=cna_annotations.columns[0], axis=1, inplace=True)
-            cna_annotations.to_csv("cna_annotated_cgi.csv", index=False, sep="\t")
+            cna_annotations.to_csv("cna_annotated_cgi.csv", index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
             trdf = pd.DataFrame(treatments)
             trdf.to_csv("treatments_cgi_cna.csv", index=False, sep="\t")
 
@@ -354,10 +348,11 @@ def generate_temp_cgi_query_files(snv_annotations: pd.DataFrame = None, cna_anno
             with open("./tmp/snvs.ext", "w") as file1:
                 file1.write(header)
 
-                uniques = snv_annotations[['chromosome', 'position', 'reference_allele', 'sample_allele', 'tumorType', 'referenceGenome']].drop_duplicates()
+                uniques = snv_annotations[['alteration']].drop_duplicates()
                 for indx, snv in uniques.iterrows():
-                    id = snv['hugoSymbol']+":"+snv['chromosome']+':'+str(snv['position'])+':'+snv['reference_allele']+':'+snv['sample_allele']
-                    row = snv['chromosome']+'\t'+str(snv['position'])+'\t'+snv['reference_allele']+'\t'+snv['sample_allele']+'\t'+id+'\n' #+'\t'+cryptocode.encrypt(snv.samples, settings.CRYPTOCODE)+'\n'
+                    id = "SNV:"+snv['alteration']
+                    alt_split = snv['alteration'].split(':')
+                    row = alt_split[1]+'\t'+alt_split[2]+'\t'+alt_split[3]+'\t'+alt_split[4]+'\t'+id+'\n' #+'\t'+cryptocode.encrypt(snv.samples, settings.CRYPTOCODE)+'\n'
                     file1.write(row)
                 file1.close()
 
@@ -370,7 +365,7 @@ def generate_temp_cgi_query_files(snv_annotations: pd.DataFrame = None, cna_anno
                 print(type(uniques))
                 for indx, cna in uniques.iterrows():
                     print(cna)
-                    id = str(cna['hugoSymbol']) + ':' + str(cna['alteration'])
+                    id = "CNA:"+str(cna['hugoSymbol']) + ':' + str(cna['alteration'])
                     row = cna['hugoSymbol']+'\t'+cna_alt_to_cgi[cna['alteration']].value+'\t'+id+'\n'#+'\t'+cryptocode.encrypt(cna.sample_id, settings.CRYPTOCODE)+'\n'
                     file2.write(row)
                 file2.close()

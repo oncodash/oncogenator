@@ -31,7 +31,6 @@ def main(**kwargs):
     if kwargs["oncokbcna"] and kwargs["copy_number_alterations"]:
 
         cnas = pd.read_csv(kwargs["copy_number_alterations"], sep="\t")
-        cnas['tumorType'] = ""
         cnas['oncogenic'] = ""
         cnas['mutationEffectDescription'] = ""
         cnas['gene_role'] = ""
@@ -41,19 +40,19 @@ def main(**kwargs):
         cnas['geneSummary'] = ""
         cnas['variantSummary'] = ""
         cnas['tumorTypeSummary'] = ""
-        cnas['treatments'] = ""
 
         # Query in chunks of 5000
         chunks = [cnas[x:x + 4999] for x in range(0, len(cnas), 5000)]
+        i = 0
         for c in chunks:
-            query_oncokb_cnas_to_csv(c)
+            i += 1
+            query_oncokb_cnas_to_csv(c, i)
 
 
     if kwargs["oncokbsnv"] and kwargs["somatic_variants"]:
         snvs = pd.read_csv(kwargs["somatic_variants"], sep="\t")
 
-        snvs['tumorType'] = ""
-        snvs['consequence_okb'] = ""
+        snvs['consequence'] = ""
         snvs['oncogenic'] = ""
         snvs['mutationEffectDescription'] = ""
         snvs['gene_role'] = ""
@@ -63,15 +62,17 @@ def main(**kwargs):
         snvs['geneSummary'] = ""
         snvs['variantSummary'] = ""
         snvs['tumorTypeSummary'] = ""
-        snvs['treatments'] = ""
 
         # Query in chunks of 5000
         chunks = [snvs[x:x + 4999] for x in range(0, len(snvs), 5000)]
+        i = 0
         for c in chunks:
-            query_oncokb_somatic_mutations(c)
+            i += 1
+            query_oncokb_somatic_mutations(c, i)
 
     if kwargs["cgiquery"] and kwargs["somatic_variants"]:
         snvs = pd.read_csv(kwargs["somatic_variants"], sep="\t", dtype='string')
+
         if kwargs["cgijobid"]:
             jobid = kwargs["cgijobid"]
         else:
@@ -84,6 +85,7 @@ def main(**kwargs):
 
     if kwargs["cgiquery"] and kwargs["copy_number_alterations"]:
         cnas = pd.read_csv(kwargs["copy_number_alterations"], sep="\t", dtype='string')
+
         if kwargs["cgijobid"]:
             jobid = kwargs["cgijobid"]
         else:
