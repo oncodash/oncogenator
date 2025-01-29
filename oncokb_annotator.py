@@ -39,6 +39,7 @@ def handle_treatments_oncokb(jsondata, alt_type, alteration):
             'description': description,
             'treatment': drugs,
             'level_of_evidence': level,
+            'cgi_level':"",
             'citations': pmids,
             'tumorType': tumortype
         }))
@@ -65,7 +66,7 @@ def handle_drugs_field(jsondata):
         return None
 
 
-def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, i):
+def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
 
     """
     Query OncoKB API to get annotations for copy number alterations (CNAs) and save the results to a CSV file.
@@ -146,16 +147,16 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, i):
             #print("Updated "+str(updatedf.count())+" CNAs")
         #cna_annotations.drop(columns=cna_annotations.columns[0], axis=1, inplace=True)
         header = False if i > 1 else True
-        cna_annotations.to_csv("cna_annotated_oncokb.csv", mode="a", index=False, header=header, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+        cna_annotations.to_csv(output, mode="a", index=False, header=header, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'cgi_level', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)
-        trdf.to_csv("treatments_oncokb.csv", mode="a", header=header, index=False, sep="\t")
+        trdf.to_csv("treatments.csv", mode="a", header=header, index=False, sep="\t")
     else:
         print("Unable to request. Response: ", response.text)
 
     return response
 
 
-def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, i):
+def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, output, i):
     """
     Query OncoKB API to get annotations for somatic mutations and save the results to a CSV file.
 
@@ -225,9 +226,9 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, i):
 
         print(snv_annotations)
         header = False if i > 1 else True
-        snv_annotations.to_csv("snv_annotated_oncokb.csv", mode="a", header=header, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+        snv_annotations.to_csv(output, mode="a", header=header, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'cgi_level', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)
-        trdf.to_csv("treatments_oncokb_snv.csv", header=header, mode="a", index=False, sep="\t")
+        trdf.to_csv("treatments.csv", header=header, mode="a", index=False, sep="\t")
         #print("Updated " + str(len(snvdf)) + " CNAs")
     else:
         print("[ERROR] Unable to request. Response: ", print(response.text))

@@ -57,7 +57,6 @@ def run_external_annotator(args):
 
 def main():
     parser = argparse.ArgumentParser(description="Run local and external annotators")
-    parser = argparse.ArgumentParser(description="Run local and external annotators")
     parser.add_argument("--annotator", choices=["local", "external", "both"], required=True,
                         help="Choose which annotator to run")
 

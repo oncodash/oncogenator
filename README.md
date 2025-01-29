@@ -60,31 +60,29 @@ Options:
 
 ### Examples
 Local Annotator
-Annotate somatic variants and CNAs using the local annotator:
+1. Annotate somatic variants and CNAs using the local annotator:
 > python main.py --annotator local --output path/to/output --somatic_variants path/to/snvs.tsv --ascatestimates path/to/ascat.tsv
 
-Annotate CNAs using the local annotator:
+2. Annotate CNAs using the local annotator:
 > python main.py --annotator local --output path/to/output --copy_number_alterations path/to/cnas.tsv --ascatestimates path/to/ascat.tsv
 
-External Annotator
-Annotate CNAs using OncoKB:
-> python main.py --annotator external --output path/to/output --oncokbcna --copy_number_alterations path/to/cnas.tsv
+External Annotator (execution order is important as the CGI annotations are supplementing the OncoKB annotations in default)
+3. Annotate CNAs using OncoKB:
+> python main.py --annotator external --output path/to/output --oncokbcna --copy_number_alterations path/to/locally_annotated_cnas.tsv
 
-Annotate somatic variants using OncoKB:
->python main.py --annotator external --output path/to/output --oncokbsnv --somatic_variants path/to/snvs.tsv
+4. Annotate somatic variants using OncoKB:
+>python main.py --annotator external --output path/to/output --oncokbsnv --somatic_variants path/to/locally_annotated_snvs.tsv
 
-Annotate CNAs using Cancer Genome Interpreter:
+5. Annotate CNAs using Cancer Genome Interpreter:
 
->python external_annotator.py --cgiquery --copy_number_alterations path/to/cnas.tsv
+>python external_annotator.py --cgiquery --copy_number_alterations path/to/oncokb_annotated_cnas.tsv
 
-Annotate somatic variants using Cancer Genome Interpreter:
->python main.py --annotator external --output path/to/output --cgiquery --somatic_variants path/to/snvs.tsv
+6. Annotate somatic variants using Cancer Genome Interpreter:
+>python main.py --annotator external --output path/to/output --cgiquery --somatic_variants path/to/oncokb_annotated_snvs.tsv
 
-SLURM Scripts
+SLURM Scripts: edit the scripts to set the correct paths and SLURM sbatch parameters.
 
 Submit a batch job to SLURM cluster to annotate on multiple computing nodes:
 >./slurm_scripts/annotate_cnas.sh path/to/sample_list.txt
 
 >./slurm_scripts/snv_annotation.sbatch path/to/sample_list.txt
-
-### License

@@ -135,9 +135,9 @@ def process_sample(gname, cna_grp, snv_grps, output, cores, ascats):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Annotate genomic alterations.")
-    parser.add_argument("--output", type=str, required=True, help="Path to output file")
-    parser.add_argument("--somatic_variants", type=str, help="Path to somatic variants file")
-    parser.add_argument("--copy_number_alterations", type=str, help="Path to copy number alterations file")
+    parser.add_argument("--output", type=str, required=True, help="Path to output files")
+    parser.add_argument("--somatic_variants", type=str, help="Path to somatic variants files")
+    parser.add_argument("--copy_number_alterations", type=str, help="Path to copy number alterations files")
     parser.add_argument("--ascatestimates", type=str, required=True, help="Path to ASCAT estimates file")
     parser.add_argument("--cn_annotations", type=str, help="Path to filtered and annotated CNAs")
     parser.add_argument("--tumortype", type=str, default="HGSOC", help="Tumor type identifier (default: HGSOC)")
