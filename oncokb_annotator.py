@@ -77,11 +77,9 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, i):
     Response: The HTTP response from the OncoKB API.
     """
 
-    token = ONCOKB_TOKEN
-
     api_url = "https://www.oncokb.org/api/v1/annotate/copyNumberAlterations"
     #request_url = api_url + 'copyNameAlterationType='+AlterationType[cna.CNstatus].value+'&hugoSymbol='+hugosymbol+'&tumorType='+tumorType
-    header = {'accept':'application/json', 'Content-Type': 'application/json', 'Authorization':'Bearer '+token}
+    header = {'accept':'application/json', 'Content-Type': 'application/json', 'Authorization':'Bearer '+ONCOKB_TOKEN}
 
     print("Request OncoKB API "+api_url)
 
@@ -111,21 +109,16 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, i):
     print("Querying " +str(len(uniques))+ " CNAs....")
 
     # Sending a POST request and getting back response as HTTPResponse object.
-    #response = urllib3.PoolManager().request("POST", api_url, body=data, headers={'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer 16d3a20d-c93c-4b2d-84ad-b3657a367fdb'})
-    response = httpx.post(api_url, json=data, headers={'Authorization':'Bearer 16d3a20d-c93c-4b2d-84ad-b3657a367fdb'}, timeout=None)
-    #response = http.request("GET",request_url, headers=header)
-    #print(response.data)
-    #print(response.data.decode('utf-8'))
+    #response = urllib3.PoolManager().request("POST", api_url, body=data, headers={'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer '})
+    response = httpx.post(api_url, json=data, headers={'Authorization':'Bearer {ONCOKB_TOKEN}'}, timeout=None)
 
-    #treatmentsdf = pd.DataFrame.from_dict({'alteration_type':[],'alteration':[],'approvedIndications':[],'description':[],'treatment':[],'level_of_evidence':[],'citations':[],'tumorType':[]})
+
     if (response.status_code == 200):
         treatments = []
         respjson = json.loads(response.text)
 
         for rjson in respjson:
             hugosymbol = handle_string_field(rjson["query"]["hugoSymbol"])
-            #idsplit = str(cryptocode.decrypt(rjson["query"]["id"], settings.CRYPTOCODE)).split(":")
-            #cna_id = idsplit[2]
             alteration = str.upper(handle_string_field(rjson["query"]["alteration"]))
 
             updatedf = cna_annotations.loc[(cna_annotations['hugoSymbol']==hugosymbol) & (cna_annotations['alteration']==alteration)]
@@ -135,8 +128,6 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, i):
                 cna_annotations.at[indxs,'referenceGenome'] = handle_string_field(rjson["query"]["referenceGenome"])
                 cna_annotations.at[indxs,'tumorType'] = handle_string_field(rjson["query"]["tumorType"])
                 cna_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
-                #updatedf['proteinStart'] = handle_int_field(rjson["query"]["proteinStart"])
-                #updatedf['proteinEnd'] = handle_int_field(rjson["query"]["proteinEnd"])
                 cna_annotations.at[indxs,'oncogenic'] = handle_string_field(rjson["oncogenic"])
                 cna_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
                 cna_annotations.at[indxs,'gene_role'] = handle_string_field(rjson["mutationEffect"]["knownEffect"])
@@ -150,8 +141,6 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, i):
                 cna_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
                 cna_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
                 cna_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
-                #cna_annotations.at[indxs,'treatments'] = handle_drugs_field(rjson["treatments"])
-
                 treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'CNA', hugosymbol + ':' + alteration))
 
             #print("Updated "+str(updatedf.count())+" CNAs")
@@ -177,8 +166,7 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, i):
     None
     """
 
-    token = ONCOKB_TOKEN
-    header = {"accept":"application/json", 'Content-Type': 'application/json', "Authorization":'Bearer '+token}
+    header = {"accept":"application/json", 'Content-Type': 'application/json', "Authorization":'Bearer '+ONCOKB_TOKEN}
     request_url = "https://www.oncokb.org/api/v1/annotate/mutations/byGenomicChange"
     #request_url = "https://www.oncokb.org/api/v1/annotate/mutations/byHGVSg"
 
@@ -197,14 +185,11 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, i):
         for row in uniques
     ]
 
-    #print(data)
-    # Sending a GET request and getting back response as HTTPResponse object.
     print("Request OncoKB API "+request_url)
     print("Querying " + str(len(uniques)) + " CNAs....")
 
-    #response = urllib3.PoolManager().request("POST", request_url, body=data, headers={'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer 16d3a20d-c93c-4b2d-84ad-b3657a367fdb'})
-    response = httpx.post(request_url, json=data, headers={'Authorization':'Bearer 16d3a20d-c93c-4b2d-84ad-b3657a367fdb'}, timeout=None)
-    # response = http.request("GET",request_url, headers=header)
+    #response = urllib3.PoolManager().request("POST", request_url, body=data, headers={'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer'})
+    response = httpx.post(request_url, json=data, headers={'Authorization':'Bearer {ONCOKB_TOKEN}'}, timeout=None)
     print(response.status_code)
 
     #TODO: check why EGFR chr7,55181426,55181427,A,C  is not found but is found from web api (and also from CGI)
@@ -213,8 +198,7 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, i):
 
         respjson = json.loads(response.text)
         for rjson in respjson:
-            #print(rjson)
-            #print("OBJ", rjson)
+
             id = str(rjson["query"]["id"])
             idsplit = id.split(":")
             chromosome = str(idsplit[0])
@@ -228,7 +212,6 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, i):
                 snv_annotations.at[indxs, 'alteration'] = alteration
                 snv_annotations.at[indxs, 'referenceGenome'] = handle_string_field(rjson["query"]["referenceGenome"])
                 snv_annotations.at[indxs,'tumorType'] = handle_string_field(rjson["query"]["tumorType"])
-                #snv_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
                 snv_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
                 snv_annotations.at[indxs,'oncogenic'] = handle_string_field(rjson["oncogenic"])
                 snv_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
@@ -238,11 +221,9 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, i):
                 snv_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
                 snv_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
                 snv_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
-                #snv_annotations.at[indxs,'treatments'] = handle_drugs_field(rjson["treatments"])
                 treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'SNV', alteration))
 
         print(snv_annotations)
-        #snv_annotations.drop(columns=snv_annotations.columns[0], axis=1, inplace=True)
         header = False if i > 1 else True
         snv_annotations.to_csv("snv_annotated_oncokb.csv", mode="a", header=header, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)

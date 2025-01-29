@@ -111,7 +111,6 @@ def gene_id_convert(geneids, target):
     request_url = "https://biit.cs.ut.ee/gprofiler/api/convert/convert/"
     print("Request gProfiler API "+request_url)
     data = '{"organism":"hsapiens", "target":"'+target+'", "query":"'+geneids+'"}'
-    #{"organism":"hsapiens", "target":target, "query":geneids}
     headers = {"Content-Type": "application/json"}
     body = json.dumps(data).encode('utf-8')
     response = httpx.post(request_url, json=body, headers=headers, timeout=None)
