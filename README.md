@@ -1,6 +1,6 @@
-# Oncodash Annotation Tool
+# Oncogenator
 
-This tool is used for post-annotation of raw VCF files that have been annotated with Annovar. It performs additional annotation based on copy number information, estimates the homogeneity of somatic alterations, and classifies somatic alterations by their functional consequences.
+Oncogenator is used for post-annotation of genomic alterations that have been previously annotated with Annovar. It performs additional annotation based on copy number information, estimates the homogeneity of somatic alterations, and classifies somatic alterations by their functional consequences.
 
 ## Description
 
