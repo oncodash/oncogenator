@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "Oncogenator"
+version = "0.1.0"
+description = "A tool for post-annotation of genomic alterations, integrating data from OncoKB and Cancer Genome Interpreter."
+authors = ["Ilari Maarala"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+pandas = "^1.3"
+dask = "^2022.1"
+numpy = "^1.21"
+scipy = "^1.7"
+networkx = "^2.6"
+python-decouple = "^3.5"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+oncogenator = "main:main"
+
+[tool.poetry.urls]
+"Homepage" = "https://github.com/oncodash/oncogenator"
+"Bug Tracker" = "https://github.com/oncodash/oncogenator/issues"
+
+[tool.poetry.classifiers]
+"Development Status" = "3 - Alpha"
+"Intended Audience" = "Science/Research"
+"License" = "MIT"
+"Programming Language" = "Python :: 3"
+"Topic" = "Annotation"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
