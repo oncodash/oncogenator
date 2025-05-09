@@ -16,7 +16,7 @@ def handle_boolean_field(value, field=None, default=False):
 
 
 def handle_float_field(value):
-    return None if pd.isna(value) else float(value.replace(",", "."))
+    return None if pd.isna(value) or str(value) == "." else float(value.replace(",", "."))
 
 
 def handle_cn_type_field(value):
@@ -29,19 +29,19 @@ def handle_cn_type_field(value):
 
 
 def handle_string_field(value):
-    return None if pd.isna(value) else value
+    return None if pd.isna(value) or str(value) == "." else value
 
 
 def handle_cn_field(value):
-    return None if pd.isna(value) else value
+    return None if pd.isna(value) or str(value) == "." else value
 
 
 def handle_int_field(value):
-    return None if pd.isna(value) else value
+    return None if pd.isna(value) or str(value) == "." else value
 
 
 def handle_date_field(value):
-    return None if pd.isna(value) else value
+    return None if pd.isna(value) or str(value) == "." else value
 
 
 def handle_decimal_field(value):
