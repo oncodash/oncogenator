@@ -284,14 +284,14 @@ class SomaticVariantAnnotator:
             row['hom_lo'] = "{:.9f}".format(expHomCI_lo),
             row['hom_hi'] = "{:.9f}".format(expHomCI_hi),
             row['hom_pbinom_lo'] = "{:.9f}".format(expHom_pbinom_lower),
-            row['homogenous'] = homogenous
+            row['homogenous'] = bool(homogenous)
             row['af'] = expHomAF
             if homogenous and exonicFuncMane == "nonsynonymous_SNV":
                 row['classification'] = "Missense"
-            row['hom_lo'] = row['hom_lo'][0] if isinstance(row['hom_lo'], tuple) else row['hom_lo']
-            row['hom_hi'] = row['hom_hi'][0] if isinstance(row['hom_hi'], tuple) else row['hom_hi']
-            row['hom_pbinom_lo'] = row['hom_pbinom_lo'][0] if isinstance(row['hom_pbinom_lo'], tuple) else row[
-                'hom_pbinom_lo']
+            row['hom_lo'] = float(row['hom_lo'][0] if isinstance(row['hom_lo'], tuple) else row['hom_lo'])
+            row['hom_hi'] = float(row['hom_hi'][0] if isinstance(row['hom_hi'], tuple) else row['hom_hi'])
+            row['hom_pbinom_lo'] = float(row['hom_pbinom_lo'][0] if isinstance(row['hom_pbinom_lo'], tuple) else row[
+                'hom_pbinom_lo'])
 
         except Exception as e:
             print(e)
@@ -316,7 +316,7 @@ class SomaticVariantAnnotator:
             sample_id = row['sample_id']
 
             # Calculate homogeneity estimate
-            tfs = self.ascats.loc[self.ascats['sample'] == sample_id]['purity']
+            tfs = self.ascats.loc[self.ascats['sample'] == sample_id]['purity'] # Tumor fraction = purity of the tumor
             tf = tfs.iloc[0] if len(tfs) > 0 else 0.0  # loc[ascats['sample'] == sample_id]['purity'].values[0]
             ad0 = int(row['ad0'])
             ad1 = int(row['ad1'])

@@ -1,17 +1,18 @@
 # Oncogenator
 
-Oncogenator is used for post-annotation of genomic alterations that have been previously annotated with Annovar. It performs additional annotation based on copy number information, estimates the homogeneity of somatic alterations, and classifies somatic alterations by their functional consequences.
+Oncogenator is used for identifying significant genomic alterations from variants previously annotated with Annovar. It performs additional annotation based on copy number information, estimates the homogeneity of somatic alterations, and classifies somatic alterations by their functional consequences.
 
 ## Description
 
 The tool processes somatic variants and copy number alterations (CNAs) to provide a comprehensive annotation of genomic alterations. It integrates data from various sources, including OncoKB and Cancer Genome Interpreter (CGI), to enhance the annotation with clinical relevance and treatment information.
 
 ### Features
-
-- **Somatic Variant Annotation**: Annotates somatic variants with functional consequences and clinical relevance.
-- **Copy Number Alteration Annotation**: Annotates CNAs with functional consequences and clinical relevance.
-- **Homogeneity Estimation**: Estimates the homogeneity of somatic alterations.
-- **Classification**: Classifies somatic alterations by their functional consequences.
+- **Copy Number Alteration Annotation**: Detects higly expressed and silenced genes from copy number and ploidy information.
+- **Somatic Variant Annotation**: Annotates somatic variants with copy number and ploidy information.
+- **Homogeneity Estimation**: Estimates the homogeneity of somatic alterations from tumor purity, ploidy and copy number information.
+- **Pathogenicity Estimation**: Estimates the pathogenicity of somatic alterations based on their functional consequences and multiple variant effect predictors (AlphaMissense, Polyphen, SIFT) 
+- **Classification**: Classifies somatic alterations by their functional consequences and homogeneity.
+- **Integration with OncoKB and CGI**: Queries OncoKB and CGI for clinical relevance and possible treatments.
 
 ### Requirements
 - Python 3.x

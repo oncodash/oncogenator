@@ -48,6 +48,7 @@ class CopyNumberAnnotator:
                         'nMinor': handle_int_field(row["nMinor"]),
                         'lohstatus': handle_string_field(row["LOHstatus"]),
                         'ploidy': handle_decimal_field(float(ploidy)),
+                        'chromosome': handle_string_field(row["chr"]),
                         'start': handle_string_field(row["start"]),
                         'end': handle_string_field(row["end"]),
                         'strand': handle_string_field(row["strand"]),
