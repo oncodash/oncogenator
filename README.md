@@ -21,12 +21,13 @@ The tool processes somatic variants and copy number alterations (CNAs) to provid
 
 ### Installation
 Clone the repository.
-Install the required Python packages:
->pip install -r requirements.txt
 
 Set up the virtual environment and activate it:
 > python -m venv venv
-source venv/bin/activate
+> source venv/bin/activate
+
+Install the required Python packages:
+> pip install -r requirements.txt
 
 Configure the paths and API tokens in the scripts as needed.
 
