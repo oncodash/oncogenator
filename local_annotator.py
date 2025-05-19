@@ -54,7 +54,7 @@ def main(**kwargs):
 
 def process_copy_number_alterations(kwargs):
     output = kwargs["output"]
-    cores = int(kwargs.get("cores", 0))
+    cores = int(kwargs.get("cores", 1))
     cna_data = pd.read_csv(kwargs["copy_number_alterations"], sep="\t")
 
     refgenome = kwargs.get("refgen", "GRCh38")
@@ -64,14 +64,17 @@ def process_copy_number_alterations(kwargs):
     ascats = pd.read_csv(kwargs["ascatestimates"], sep="\t", encoding='utf-8')
     annotator = CopyNumberAnnotator(refgenome=refgenome, tumortype=tumortype, ascats=ascats, ploidy_coeff=ploidy_coeff)
 
-    cnas_filtered = df_apply(cna_data, annotator.filter_cnas_by_ploidy, None, None, True, False, cores=cores, ascats=ascats, ploidy_coeff=ploidy_coeff).dropna()
+    cnas_filtered = df_apply(cna_data, annotator.filter_cnas_by_ploidy).dropna()
     cnadf = pd.DataFrame(dict(zip(cnas_filtered.index, cnas_filtered.values))).T
     cnadf.to_csv(output, sep='\t')
     print(cnadf)
 
 def process_somatic_variants(kwargs):
+    if kwargs['pid']:
+        snv_file = f"{kwargs['somatic_variants']}/{kwargs['pid']}.csv"
+    else:
+        snv_file = kwargs['somatic_variants']
 
-    snv_file = f"{kwargs['somatic_variants']}/{kwargs['pid']}.csv"
     output = kwargs["output"]
     cores = int(kwargs.get("cores", 0))
     refgenome = kwargs.get("refgen", "GRCh38")
