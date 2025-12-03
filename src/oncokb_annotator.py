@@ -3,8 +3,7 @@ import pandas as pd
 
 import json
 import httpx
-
-ONCOKB_TOKEN = ""
+from config import ONCOKB_TOKEN, ONCOKB_CNA_ENDPOINT, ONCOKB_MUTATION_ENDPOINT
 
 def handle_treatments_oncokb(jsondata, alt_type, alteration):
     """
@@ -78,9 +77,9 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
     Response: The HTTP response from the OncoKB API.
     """
 
-    api_url = "https://www.oncokb.org/api/v1/annotate/copyNumberAlterations"
+    api_url = ONCOKB_CNA_ENDPOINT
     #request_url = api_url + 'copyNameAlterationType='+AlterationType[cna.CNstatus].value+'&hugoSymbol='+hugosymbol+'&tumorType='+tumorType
-    header = {'accept':'application/json', 'Content-Type': 'application/json', 'Authorization':'Bearer '+ONCOKB_TOKEN}
+    header = {'Authorization':'Bearer '+ONCOKB_TOKEN}
 
     print("Request OncoKB API "+api_url)
 
@@ -111,7 +110,7 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
 
     # Sending a POST request and getting back response as HTTPResponse object.
     #response = urllib3.PoolManager().request("POST", api_url, body=data, headers={'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer '})
-    response = httpx.post(api_url, json=data, headers={'Authorization':'Bearer {ONCOKB_TOKEN}'}, timeout=None)
+    response = httpx.post(api_url, json=data, headers=header, timeout=None)
 
 
     if (response.status_code == 200):
@@ -156,24 +155,25 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
     return response
 
 
-def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, output, i):
+def query_oncokb_somatic_mutations(somatic_mutation_annotations: pd.DataFrame, output, i):
     """
     Query OncoKB API to get annotations for somatic mutations and save the results to a CSV file.
 
     Parameters:
-    snv_annotations (DataFrame): DataFrame containing SNV annotations.
+    somatic_mutation_annotations (DataFrame): DataFrame containing somatic_mutation annotations.
 
     Returns:
     None
     """
 
-    header = {"accept":"application/json", 'Content-Type': 'application/json', "Authorization":'Bearer '+ONCOKB_TOKEN}
-    request_url = "https://www.oncokb.org/api/v1/annotate/mutations/byGenomicChange"
+
+    header = {'Authorization':'Bearer '+ONCOKB_TOKEN}
+    request_url = ONCOKB_MUTATION_ENDPOINT
     #request_url = "https://www.oncokb.org/api/v1/annotate/mutations/byHGVSg"
 
-    snvs = snv_annotations.groupby(['chromosome', 'position', 'reference_allele', 'sample_allele', 'tumorType', 'referenceGenome'])
+    somatic_mutations = somatic_mutation_annotations.groupby(['chromosome', 'position', 'reference_allele', 'sample_allele', 'tumorType', 'referenceGenome'])
     uniques = []
-    for keys, group in snvs:
+    for keys, group in somatic_mutations:
         uniques.append(dict({'chromosome':keys[0], 'position':keys[1], 'reference_allele':keys[2], 'sample_allele':keys[3], 'tumorType':keys[4], 'referenceGenome':keys[5]}))
 
     data = [
@@ -187,10 +187,10 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, output, i):
     ]
 
     print("Request OncoKB API "+request_url)
-    print("Querying " + str(len(uniques)) + " CNAs....")
+    print("Querying " + str(len(uniques)) + " somatic_mutations....")
 
     #response = urllib3.PoolManager().request("POST", request_url, body=data, headers={'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer'})
-    response = httpx.post(request_url, json=data, headers={'Authorization':'Bearer {ONCOKB_TOKEN}'}, timeout=None)
+    response = httpx.post(request_url, json=data, headers=header, timeout=None)
     print(response.status_code)
 
     #TODO: check why EGFR chr7,55181426,55181427,A,C  is not found but is found from web api (and also from CGI)
@@ -206,30 +206,30 @@ def query_oncokb_somatic_mutations(snv_annotations: pd.DataFrame, output, i):
             position = int(idsplit[1])
             reference_allele = str(idsplit[2])
             sample_allele = str(idsplit[3])
-            updatedf = snv_annotations.loc[(snv_annotations['chromosome']==chromosome) & (snv_annotations['position']==position) & (snv_annotations['reference_allele']==reference_allele) & (snv_annotations['sample_allele']==sample_allele)]
+            updatedf = somatic_mutation_annotations.loc[(somatic_mutation_annotations['chromosome']==chromosome) & (somatic_mutation_annotations['position']==position) & (somatic_mutation_annotations['reference_allele']==reference_allele) & (somatic_mutation_annotations['sample_allele']==sample_allele)]
 
             for indxs, row in updatedf.iterrows():
-                alteration = snv_annotations.at[indxs,'hugoSymbol']+":"+chromosome+":"+str(position)+":"+reference_allele+":"+sample_allele
-                snv_annotations.at[indxs, 'alteration'] = alteration
-                snv_annotations.at[indxs, 'referenceGenome'] = handle_string_field(rjson["query"]["referenceGenome"])
-                snv_annotations.at[indxs,'tumorType'] = handle_string_field(rjson["query"]["tumorType"])
-                snv_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
-                snv_annotations.at[indxs,'oncogenic'] = handle_string_field(rjson["oncogenic"])
-                snv_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
-                snv_annotations.at[indxs,'gene_role'] = handle_string_field(rjson["mutationEffect"]["knownEffect"])
-                snv_annotations.at[indxs,'citationPMids'] = handle_string_field(",".join(rjson["mutationEffect"]["citations"]["pmids"]))
-                snv_annotations.at[indxs,'level_of_evidence'] = handle_string_field(rjson["highestSensitiveLevel"]) if handle_string_field(rjson["highestSensitiveLevel"]) else handle_string_field(rjson["highestResistanceLevel"])
-                snv_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
-                snv_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
-                snv_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
-                treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'SNV', alteration))
+                alteration = somatic_mutation_annotations.at[indxs,'hugoSymbol']+":"+chromosome+":"+str(position)+":"+reference_allele+":"+sample_allele
+                somatic_mutation_annotations.at[indxs, 'alteration'] = alteration
+                somatic_mutation_annotations.at[indxs, 'referenceGenome'] = handle_string_field(rjson["query"]["referenceGenome"])
+                somatic_mutation_annotations.at[indxs,'tumorType'] = handle_string_field(rjson["query"]["tumorType"])
+                somatic_mutation_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
+                somatic_mutation_annotations.at[indxs,'oncogenic'] = handle_string_field(rjson["oncogenic"])
+                somatic_mutation_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
+                somatic_mutation_annotations.at[indxs,'gene_role'] = handle_string_field(rjson["mutationEffect"]["knownEffect"])
+                somatic_mutation_annotations.at[indxs,'citationPMids'] = handle_string_field(",".join(rjson["mutationEffect"]["citations"]["pmids"]))
+                somatic_mutation_annotations.at[indxs,'level_of_evidence'] = handle_string_field(rjson["highestSensitiveLevel"]) if handle_string_field(rjson["highestSensitiveLevel"]) else handle_string_field(rjson["highestResistanceLevel"])
+                somatic_mutation_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
+                somatic_mutation_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
+                somatic_mutation_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
+                treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'somatic_mutation', alteration))
 
-        print(snv_annotations)
+        print(somatic_mutation_annotations)
         header = False if i > 1 else True
-        snv_annotations.to_csv(output, mode="a", header=header, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'cgi_level', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+        somatic_mutation_annotations.to_csv(output, mode="a", header=header, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'cgi_level', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)
         trdf.to_csv("treatments.csv", header=header, mode="a", index=False, sep="\t")
-        #print("Updated " + str(len(snvdf)) + " CNAs")
+        #print("Updated " + str(len(somatic_mutationdf)) + " CNAs")
     else:
         print("[ERROR] Unable to request. Response: ", print(response.text))
         exit()

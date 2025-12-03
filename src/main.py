@@ -22,14 +22,14 @@ import subprocess
       --ada_score_threshold <float>      AdaBoost score threshold for variant filtering (default: 0.95).
     
     Examples:
-      python main.py --annotator local --output path/to/output --somatic_variants path/to/snvs.tsv --ascatestimates path/to/ascat.tsv
+      python main.py --annotator local --output path/to/output --somatic_variants path/to/somatic_mutations.tsv --ascatestimates path/to/ascat.tsv
       python main.py --annotator local --output path/to/output --copy_number_alterations path/to/cnas.tsv --ascatestimates path/to/ascat.tsv
       
       External annotator examples. Appends annotation columns to existing file:
       python main.py --annotator external --copy_number_alterations path/to/cnas.tsv --ascatestimates path/to/ascat.tsv
       python main.py --annotator external --oncokbcna --copy_number_alterations path/to/cnas.tsv
-      python main.py --annotator external --oncokbsnv --somatic_variants path/to/snvs.tsv
-      python main.py --annotator external --cgiquery --somatic_variants path/to/snvs.tsv
+      python main.py --annotator external --oncokbsomatic_mutation --somatic_variants path/to/somatic_mutations.tsv
+      python main.py --annotator external --cgiquery --somatic_variants path/to/somatic_mutations.tsv
       python main.py --annotator external --cgiquery --copy_number_alterations path/to/cnas.tsv
       '''
 
@@ -80,7 +80,7 @@ def main():
                         default=0.95)
     # External annotator specific arguments
     parser.add_argument("--oncokbcna", action="store_true", help="Query OncoKB for copy number alterations")
-    parser.add_argument("--oncokbsnv", action="store_true", help="Query OncoKB for somatic mutations")
+    parser.add_argument("--oncokbsomatic_mutation", action="store_true", help="Query OncoKB for somatic mutations")
     parser.add_argument("--cgiquery", action="store_true", help="Query Cancer Genome Interpreter")
     parser.add_argument("--cgijobid", type=str, help="Download results from CGI by jobid")
 

@@ -79,12 +79,12 @@ class SomaticVariantAnnotator:
                 isoforms.append(isoform)
         return list(dict.fromkeys(isoforms))
 
-    def create_snv_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth, amis_category, amisscore):
+    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth, AM_category, amisscore, classification):
         """
-                Create an SNV annotation.
+                Create an somatic_mutation annotation.
 
                 Parameters:
-                row (Series): A row from a DataFrame containing SNV data.
+                row (Series): A row from a DataFrame containing somatic_mutation data.
                 pid (str): Patient identifier.
                 sample_id (str): Sample identifier.
                 gene (str): Gene symbol.
@@ -101,12 +101,20 @@ class SomaticVariantAnnotator:
                 ad0 (int): Allele depth for reference allele.
                 ad1 (int): Allele depth for alternate allele.
                 depth (int): Total depth.
-                amis_category (str): AMIS category.
+                AM_category (str): AMIS category.
                 amisscore (float): AMIS score.
 
                 Returns:
-                Series: A Series containing the SNV annotation.
+                Series: A Series containing the somatic_mutation annotation.
         """
+        # v4.10 fields
+        # patient CHROM   POS     REF     ALT     ID      FILTER  cytoBand        Func.MANE       Gene.MANE       GeneDetail.MANE ExonicFunc.MANE AAChange.MANE   Func.refGene    
+        # Gene.refGene    GeneDetail.refGeneExonicFunc.refGene       AAChange.refGene        genomicSuperDups        dbscsomatic_mutation_ADA_SCORE       dbscsomatic_mutation_RF_SCORE        COSMIC_ID       
+        # COSMIC_OCCURRENCE       COSMIC_TOTAL_OCC        COSMIC_CONF_SOMA  CLNSIG   CLNSIGCONF      CLNDN   CLNREVSTAT      CLNALLELEID     CLNDISDB        ONC     ONCCONF ONCDN  
+        #  ONCDISDB        ONCREVSTAT      SCI     SCIDN   SCIDISDB        SCIREVSTAT      AM_variant      AM_score   AM_class        PolyPhenVal     PolyPhenCat     SIFTval SIFTcat 
+        # Interpro_transcript     Interpro_domain regulomeDB      CADD_raw        CADD_phred      1000G_ALL       1000G_EUR       gnomAD_joint_ALL   gnomAD_joint_NFE        
+        # gnomAD_joint_FIN        gnomAD_joint_max        Truncal readCounts      VAFs    samples
+
         return pd.Series({
             'patient_id': pid,
             'sample_id': sample_id,
@@ -139,40 +147,43 @@ class SomaticVariantAnnotator:
             'hom_pbinom_lo': "{:.9f}".format(expHom_pbinom_lower),
             'homogenous': homogenous,
             'cadd_score': handle_decimal_field(row["CADD_phred"]),
-            'ada_score': handle_decimal_field(row["dbscSNV_ADA_SCORE"]),
-            'rf_score': handle_decimal_field(row["dbscSNV_RF_SCORE"]),
-            'sift_category': None,
-            'sift_score': None,
-            'polyphen_category': None,
-            'polyphen_score': None,
-            'amis_category': amis_category,
-            'amis_score': handle_decimal_field(amisscore),
+            'ada_score': handle_decimal_field(row["dbscsomatic_mutation_ADA_SCORE"]),
+            'rf_score': handle_decimal_field(row["dbscsomatic_mutation_RF_SCORE"]),
+            'sift_category': handle_string_field(row["SIFTval"]),
+            'sift_score': handle_string_field(row["SIFTcat"]),
+            'polyphen_category': handle_string_field(row["PolyPhenCat"]),
+            'polyphen_score': handle_string_field(row["PolyPhenVal"]),
+            'AM_category': handle_string_field(AM_category),
+            'AM_score': handle_decimal_field(amisscore),
             'cosmic_id': handle_string_field(row["COSMIC_ID"]),
             'clinvar_id': handle_string_field(row["CLNALLELEID"]),
+            'classification': handle_string_field(classification)
         })
 
-    def filter_and_classify_snvs(self, row):
+    def filter_and_classify_somatic_mutations(self, row):
         """
-                Filter and classify SNVs based on various criteria.
+                Filter and classify somatic_mutations based on various criteria.
 
                 Parameters:
-                row (Series): A row from a DataFrame containing SNV data.
+                row (Series): A row from a DataFrame containing somatic_mutation data.
 
                 Returns:
-                list: A list of Series containing SNV annotations.
+                list: A list of Series containing somatic_mutation annotations.
         """
         sv_class = None
-        snv_annotations = []
-
+        somatic_mutation_annotations = []
+		
+        print(row)
+        AM_variant = handle_string_field(row["AM_variant"])
         amisscore = row['AM_score']
-        amis_category = row['AM_class']
-        pathogenecity = amis_category
+        AM_category = row['AM_class']
+        pathogenecity = AM_category
 
         exonicFuncMane = handle_string_field(row["ExonicFunc.MANE"])
         funcMane = handle_string_field(row["Func.MANE"])
         funcRefgene = handle_string_field(row["Func.refGene"])
-        ada_score = handle_decimal_field(row["dbscSNV_ADA_SCORE"])
-        rf_score = handle_decimal_field(row["dbscSNV_RF_SCORE"])
+        ada_score = handle_decimal_field(row["dbscsomatic_mutation_ADA_SCORE"])
+        rf_score = handle_decimal_field(row["dbscsomatic_mutation_RF_SCORE"])
 
         for sample_id in self.samples:
             pid = sample_id.split("_")[0]
@@ -202,7 +213,7 @@ class SomaticVariantAnnotator:
                 homogenous = None
 
                 if nMajor and nMinor:
-                    cn = int(nMinor) + int(nMajor)
+                    cn = float(nMinor) + float(nMajor)
                     expHomAF = float(self.expectedAF(cn, cn, tf))
                     expHomCI_lo = float(stats.binom.ppf(0.025, depth, expHomAF))
                     expHomCI_hi = float(stats.binom.ppf(0.975, depth, expHomAF))
@@ -210,7 +221,7 @@ class SomaticVariantAnnotator:
                     expHom_pbinom_lower = float(stats.binom.cdf(ad1, depth, expHomAF))
                     homogenous = expHom_pbinom_lower > self.homogeneity_threshold
 
-                if homogenous and exonicFuncMane == "nonsynonymous_SNV":
+                if homogenous and exonicFuncMane == "nonsynonymous_somatic_mutation":
                     sv_class = "Missense"
                 if exonicFuncMane in ["frameshift_insertion", "frameshift_deletion", "stopgain"]:
                     sv_class = "Truncating"
@@ -227,21 +238,21 @@ class SomaticVariantAnnotator:
 
                 alteration = f"{gene}:{row['CHROM']}:{row['POS']}:{row['REF']}>{row['ALT']}"
                 if sv_class:
-                    snv_annotations.append(self.create_snv_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth, amis_category, amisscore))
+                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth, AM_category, amisscore, sv_class))
 
-        return snv_annotations
+        return somatic_mutation_annotations
 
 
 
-    def post_filter_and_classify_snvs(self, row):
+    def post_filter_and_classify_somatic_mutations(self, row):
         """
-                Post-filter and classify SNVs based on various criteria.
+                Post-filter and classify somatic_mutations based on various criteria.
 
                 Parameters:
-                row (Series): A row from a DataFrame containing SNV data.
+                row (Series): A row from a DataFrame containing somatic_mutation data.
 
                 Returns:
-                Series: A Series containing the updated SNV data.
+                Series: A Series containing the updated somatic_mutation data.
         """
         try:
             exonicFuncMane = handle_string_field(row["exonicFuncMane"])
@@ -286,7 +297,7 @@ class SomaticVariantAnnotator:
             row['hom_pbinom_lo'] = "{:.9f}".format(expHom_pbinom_lower),
             row['homogenous'] = bool(homogenous)
             row['af'] = expHomAF
-            if homogenous and exonicFuncMane == "nonsynonymous_SNV":
+            if homogenous and exonicFuncMane == "nonsynonymous_somatic_mutation":
                 row['classification'] = "Missense"
             row['hom_lo'] = float(row['hom_lo'][0] if isinstance(row['hom_lo'], tuple) else row['hom_lo'])
             row['hom_hi'] = float(row['hom_hi'][0] if isinstance(row['hom_hi'], tuple) else row['hom_hi'])
@@ -300,15 +311,15 @@ class SomaticVariantAnnotator:
         return row
 
 
-    def post_filter_and_classify_snvs_by_sample(self, row):
+    def post_filter_and_classify_somatic_mutations_by_sample(self, row):
         """
-                Post-filter and classify SNVs by sample based on various criteria.
+                Post-filter and classify somatic_mutations by sample based on various criteria.
 
                 Parameters:
-                row (Series): A row from a DataFrame containing SNV data.
+                row (Series): A row from a DataFrame containing somatic_mutation data.
 
                 Returns:
-                Series: A Series containing the updated SNV data.
+                Series: A Series containing the updated somatic_mutation data.
         """
         try:
 
@@ -326,7 +337,7 @@ class SomaticVariantAnnotator:
             nMajor = None
             nMinor = None
             lohstatus = None
-            pathogenecity = handle_string_field(row["clinvar_sig"])
+            pathogenecity = handle_string_field(row["CLINSIG"])
             vcnas = self.get_variant_assoc_cnas(self.cnas, sample_id, gene)
             nMajor = handle_cn_field(vcnas['nMajor']) if len(vcnas) > 0 else None
             nMinor = handle_cn_field(vcnas['nMinor']) if len(vcnas) > 0 else None
@@ -358,7 +369,7 @@ class SomaticVariantAnnotator:
             row['homogenous'] = homogenous
             row['pathogenecity'] = pathogenecity
             row['af'] = expHomAF
-            if homogenous and exonicFuncMane == "nonsynonymous_SNV":
+            if homogenous and exonicFuncMane == "nonsynonymous_somatic_mutation":
                 row['classification'] = "Missense"
             row['hom_lo'] = row['hom_lo'][0] if isinstance(row['hom_lo'], tuple) else row['hom_lo']
             row['hom_hi'] = row['hom_hi'][0] if isinstance(row['hom_hi'], tuple) else row['hom_hi']

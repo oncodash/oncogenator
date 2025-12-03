@@ -55,7 +55,7 @@ def df_apply(
         extra_col: Optional[str] = None,
         parallel: bool = True,
         pbar: bool = False,
-        cores: Optional[int] = 0,
+        cores: Optional[int] = 1,
         **kwargs,
 ) -> pd.Series:
     """Apply or parallel apply a function to any col of a DataFrame.
