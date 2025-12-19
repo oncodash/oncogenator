@@ -1,5 +1,10 @@
+# TODO: get purity from Purple output /mnt/storageBig8/web-pub/projects/HERCULES/WGS/StructuralVariations_all/v2.0/purity_ploidy_estimates.tsv
+# TODO integrate expression data fields refCount and altCount from /mnt/storageBig8/work/joikkone/cohort/mutations_in_RNA/result_SNV_calling_RNA/D327_p2Asc1_RNA1-ASEcall-bash/out1.table by matching patientID chromosome(contig) position referenceAllele and sampleAllele
+
 from utils import *
 from scipy import stats
+#import dask.dataframe as dd
+import pandas as pd
 
 
 class SomaticVariantAnnotator:
@@ -79,7 +84,7 @@ class SomaticVariantAnnotator:
                 isoforms.append(isoform)
         return list(dict.fromkeys(isoforms))
 
-    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth, AM_category, amisscore, classification):
+    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth=0, AM_class="", amisscore=0.0, classification="", pathogenecity="", refCount=0, altCount=0):
         """
                 Create an somatic_mutation annotation.
 
@@ -98,10 +103,11 @@ class SomaticVariantAnnotator:
                 expHomCI_hi (float): Upper bound of the expected homogenous confidence interval.
                 expHom_pbinom_lower (float): Lower bound of the binomial probability.
                 homogenous (bool): Homogeneity status.
+
                 ad0 (int): Allele depth for reference allele.
                 ad1 (int): Allele depth for alternate allele.
                 depth (int): Total depth.
-                AM_category (str): AMIS category.
+                AM_class (str): AMIS category.
                 amisscore (float): AMIS score.
 
                 Returns:
@@ -147,17 +153,20 @@ class SomaticVariantAnnotator:
             'hom_pbinom_lo': "{:.9f}".format(expHom_pbinom_lower),
             'homogenous': homogenous,
             'cadd_score': handle_decimal_field(row["CADD_phred"]),
-            'ada_score': handle_decimal_field(row["dbscsomatic_mutation_ADA_SCORE"]),
-            'rf_score': handle_decimal_field(row["dbscsomatic_mutation_RF_SCORE"]),
-            'sift_category': handle_string_field(row["SIFTval"]),
-            'sift_score': handle_string_field(row["SIFTcat"]),
+            'ada_score': handle_decimal_field(row["dbscSNV_ADA_SCORE"]),
+            'rf_score': handle_decimal_field(row["dbscSNV_RF_SCORE"]),
+            'sift_category': handle_string_field(row["SIFTcat"]),
+            'sift_score': handle_string_field(row["SIFTval"]),
             'polyphen_category': handle_string_field(row["PolyPhenCat"]),
             'polyphen_score': handle_string_field(row["PolyPhenVal"]),
-            'AM_category': handle_string_field(AM_category),
+            'AM_class': handle_string_field(AM_class),
             'AM_score': handle_decimal_field(amisscore),
             'cosmic_id': handle_string_field(row["COSMIC_ID"]),
             'clinvar_id': handle_string_field(row["CLNALLELEID"]),
-            'classification': handle_string_field(classification)
+            'classification': handle_string_field(classification),
+            'pathogenecity': handle_string_field(pathogenecity),
+            'refCount': refCount,
+            'altCount': altCount
         })
 
     def filter_and_classify_somatic_mutations(self, row):
@@ -174,25 +183,46 @@ class SomaticVariantAnnotator:
         somatic_mutation_annotations = []
 		
         print(row)
-        AM_variant = handle_string_field(row["AM_variant"])
-        amisscore = row['AM_score']
-        AM_category = row['AM_class']
-        pathogenecity = AM_category
+        AM_score = row['AM_score']
+        AM_class = row['AM_class']
+        pathogenecity = handle_string_field(row["CLNSIG"])
 
         exonicFuncMane = handle_string_field(row["ExonicFunc.MANE"])
         funcMane = handle_string_field(row["Func.MANE"])
         funcRefgene = handle_string_field(row["Func.refGene"])
-        ada_score = handle_decimal_field(row["dbscsomatic_mutation_ADA_SCORE"])
-        rf_score = handle_decimal_field(row["dbscsomatic_mutation_RF_SCORE"])
+        ada_score = handle_decimal_field(row["dbscSNV_ADA_SCORE"])
+        rf_score = handle_decimal_field(row["dbscSNV_RF_SCORE"])
 
         for sample_id in self.samples:
-            pid = sample_id.split("_")[0]
+            
+            sample_name_split = sample_id.split("_")
+            pid = sample_name_split[0]
+            siteid = sample_name_split[1]
+
+            rna_expression = None
+            for rna_num in range(1, 6):  # Try RNA1 through RNA5
+                try:
+                    rna_path = f"/mnt/storageBig8/work/joikkone/cohort/mutations_in_RNA/result_SNV_calling_RNA/{pid}_{siteid}_RNA{rna_num}-ASEcall-bash/out1.table"
+                    rna_expression = pd.read_csv(rna_path, sep="\t")
+                    if len(rna_expression) > 0:
+                        print(f"Found RNA expression data for {sample_id} in RNA{rna_num}: {len(rna_expression)} records")
+                        break
+                except Exception as e:
+                    continue
+            
+            if rna_expression is None or len(rna_expression) == 0:
+                print(f"No RNA expression data found for sample {sample_id}")
+                continue
 
             tfs = self.ascats.loc[self.ascats['sample'] == sample_id]['purity']
             tf = tfs.iloc[0] if len(tfs) > 0 else 0.0
-            depth = int(row[str(sample_id)+".DP"])
-            ad0 = int(row[str(sample_id)+".AD"].split(',')[0])
-            ad1 = int(row[str(sample_id)+".AD"].split(',')[1])
+            try:
+                depth = int(row[str(sample_id)+".DP"])
+                ad0 = int(row[str(sample_id)+".AD"].split(',')[0])
+                ad1 = int(row[str(sample_id)+".AD"].split(',')[1])
+            except Exception as e:
+                print(f"Sample not found from somatic variants. Error processing sample {sample_id}: {e}")
+                continue
 
             geneMANE = handle_string_field(row["Gene.MANE"]).split(';')
             genes = set(geneMANE)
@@ -237,8 +267,11 @@ class SomaticVariantAnnotator:
                             continue
 
                 alteration = f"{gene}:{row['CHROM']}:{row['POS']}:{row['REF']}>{row['ALT']}"
+                refCount = rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT']), 'refCount'].values[0] if len(rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT'])]) > 0 else 0
+                altCount = rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT']), 'altCount'].values[0] if len(rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT'])]) > 0 else 0
+                                              
                 if sv_class:
-                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth, AM_category, amisscore, sv_class))
+                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth=depth, AM_class=AM_class, amisscore=AM_score, classification=sv_class, pathogenecity=pathogenecity, refCount=refCount, altCount=altCount))  
 
         return somatic_mutation_annotations
 
@@ -337,7 +370,7 @@ class SomaticVariantAnnotator:
             nMajor = None
             nMinor = None
             lohstatus = None
-            pathogenecity = handle_string_field(row["CLINSIG"])
+            pathogenecity = handle_string_field(row["CLNSIG"])
             vcnas = self.get_variant_assoc_cnas(self.cnas, sample_id, gene)
             nMajor = handle_cn_field(vcnas['nMajor']) if len(vcnas) > 0 else None
             nMinor = handle_cn_field(vcnas['nMinor']) if len(vcnas) > 0 else None

@@ -1,3 +1,4 @@
+# TODO get ploidy from Purple output /mnt/storageBig8/web-pub/projects/HERCULES/WGS/StructuralVariations_all/v2.0/purity_ploidy_estimates.tsv
 from utils import *
 
 class CopyNumberAnnotator:

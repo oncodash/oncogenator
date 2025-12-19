@@ -56,7 +56,7 @@ def main(**kwargs):
 def process_copy_number_alterations(kwargs):
     output = kwargs["output"]
     cores = int(kwargs.get("cores", 1))
-    cna_data = pd.read_csv(kwargs["copy_number_alterations"], sep="\t")
+    cna_data = pd.read_csv(kwargs["copy_number_alterations"], sep="\t", encoding='utf-8')
 
     refgenome = kwargs.get("refgen", CGI_DEFAULT_REFERENCE)
     ploidy_coeff = float(kwargs.get("ploidy_threshold", 2.5))
@@ -65,7 +65,7 @@ def process_copy_number_alterations(kwargs):
     ascats = pd.read_csv(kwargs["ascatestimates"], sep="\t", encoding='utf-8')
     annotator = CopyNumberAnnotator(refgenome=refgenome, tumortype=tumortype, ascats=ascats, ploidy_coeff=ploidy_coeff)
 
-    cnas_filtered = df_apply(cna_data, annotator.filter_cnas_by_ploidy, parallel=True).dropna()
+    cnas_filtered = df_apply(cna_data, annotator.filter_cnas_by_ploidy).dropna()
     cnadf = pd.DataFrame(dict(zip(cnas_filtered.index, cnas_filtered.values))).T
     cnadf.to_csv(output, sep='\t')
 
