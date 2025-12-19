@@ -253,7 +253,7 @@ def query_cgi_job(jobid, output, somatic_mutation_annotations: pd.DataFrame = No
                     cna_annotations.at[indxs, 'gene_role'] = handle_string_field(cgi_cna["gene_role"]),
                     cna_annotations.at[indxs, 'tumorTypeSummary'] =  handle_string_field(cgi_cna["driver_statement"])
 
-            if idsplit[0] == "somatic_mutation":
+            if idsplit[0] == "SNV":
                 hugoSymbol = idsplit[1]
                 chromosome = str(idsplit[2])
                 position = int(idsplit[3])
@@ -262,7 +262,7 @@ def query_cgi_job(jobid, output, somatic_mutation_annotations: pd.DataFrame = No
                 alteration = hugoSymbol + ":" + chromosome + ":" + str(
                     position) + ":" + reference_allele + ":" + sample_allele
 
-                treatment = handle_treatments_cgi(biom, 'somatic_mutation', alteration)
+                treatment = handle_treatments_cgi(biom, 'SNV', alteration)
                 print(treatment)
                 treatments.append(treatment)
 

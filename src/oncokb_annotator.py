@@ -222,7 +222,7 @@ def query_oncokb_somatic_mutations(somatic_mutation_annotations: pd.DataFrame, o
                 somatic_mutation_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
                 somatic_mutation_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
                 somatic_mutation_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
-                treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'somatic_mutation', alteration))
+                treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'SNV', alteration))
 
         print(somatic_mutation_annotations)
         header = False if i > 1 else True

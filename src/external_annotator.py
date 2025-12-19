@@ -10,7 +10,7 @@ Usage: external_annotator.py [OPTIONS]
 
 Options:
   --oncokbcna                  Query OncoKB for copy number alterations.
-  --oncokbsomatic_mutation                  Query OncoKB for somatic mutations.
+  --oncokbsnv                  Query OncoKB for somatic mutations.
   --cgiquery                   Query Cancer Genome Interpreter.
   --cgijobid <str>             Download results from CGI by jobid and apply annotations.
   --copy_number_alterations <str> Path to copy number alterations file.
@@ -20,7 +20,7 @@ Options:
 
 Examples:
   python external_annotator.py --oncokbcna --copy_number_alterations path/to/cnas.tsv --output path/to/output
-  python external_annotator.py --oncokbsomatic_mutation --somatic_variants path/to/somatic_mutations.tsv --output path/to/output
+  python external_annotator.py --oncokbsnv --somatic_variants path/to/somatic_mutations.tsv --output path/to/output
   python external_annotator.py --cgiquery --somatic_variants path/to/somatic_mutations.tsv --output path/to/output
   python external_annotator.py --cgiquery --copy_number_alterations path/to/cnas.tsv --output path/to/output
   python external_annotator.py --cgiquery --cgijobid <jobid> --somatic_variants path/to/somatic_mutations.tsv --output path/to/output
@@ -51,7 +51,7 @@ def main(**kwargs):
             query_oncokb_cnas_to_csv(c, output, i)
 
 
-    if kwargs["oncokbsomatic_mutation"] and kwargs["somatic_variants"]:
+    if kwargs["oncokbsnv"] and kwargs["somatic_variants"]:
         somatic_mutations = pd.read_csv(kwargs["somatic_variants"], sep="\t")
 
         somatic_mutations['consequence'] = ""
@@ -103,7 +103,7 @@ if __name__ == "__main__":
 
     def add_arguments(parser):
         parser.add_argument('--oncokbcna', action='store_true', help='Query OncoKB for copy number alterations')
-        parser.add_argument('--oncokbsomatic_mutation', action='store_true', help='Query OncoKB for somatic mutations')
+        parser.add_argument('--oncokbsnv', action='store_true', help='Query OncoKB for somatic mutations')
         parser.add_argument('--cgiquery', action='store_true', help='Query Cancer Genome Interpreter')
         parser.add_argument('--cgijobid', type=str, help='Download results from CGI by jobid')
         parser.add_argument('--copy_number_alterations', type=str, help='Path to copy number alterations file')

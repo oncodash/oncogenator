@@ -251,7 +251,7 @@ class SomaticVariantAnnotator:
                     expHom_pbinom_lower = float(stats.binom.cdf(ad1, depth, expHomAF))
                     homogenous = expHom_pbinom_lower > self.homogeneity_threshold
 
-                if homogenous and exonicFuncMane == "nonsynonymous_somatic_mutation":
+                if homogenous and exonicFuncMane == "nonsynonymous_SNV":
                     sv_class = "Missense"
                 if exonicFuncMane in ["frameshift_insertion", "frameshift_deletion", "stopgain"]:
                     sv_class = "Truncating"
@@ -330,7 +330,7 @@ class SomaticVariantAnnotator:
             row['hom_pbinom_lo'] = "{:.9f}".format(expHom_pbinom_lower),
             row['homogenous'] = bool(homogenous)
             row['af'] = expHomAF
-            if homogenous and exonicFuncMane == "nonsynonymous_somatic_mutation":
+            if homogenous and exonicFuncMane == "nonsynonymous_SNV":
                 row['classification'] = "Missense"
             row['hom_lo'] = float(row['hom_lo'][0] if isinstance(row['hom_lo'], tuple) else row['hom_lo'])
             row['hom_hi'] = float(row['hom_hi'][0] if isinstance(row['hom_hi'], tuple) else row['hom_hi'])
@@ -402,7 +402,7 @@ class SomaticVariantAnnotator:
             row['homogenous'] = homogenous
             row['pathogenecity'] = pathogenecity
             row['af'] = expHomAF
-            if homogenous and exonicFuncMane == "nonsynonymous_somatic_mutation":
+            if homogenous and exonicFuncMane == "nonsynonymous_SNV":
                 row['classification'] = "Missense"
             row['hom_lo'] = row['hom_lo'][0] if isinstance(row['hom_lo'], tuple) else row['hom_lo']
             row['hom_hi'] = row['hom_hi'][0] if isinstance(row['hom_hi'], tuple) else row['hom_hi']
