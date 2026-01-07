@@ -334,7 +334,7 @@ def generate_temp_cgi_query_files(somatic_mutation_annotations: pd.DataFrame = N
 
                     uniques = somatic_mutation_annotations[['hugoSymbol', 'chromosome', 'position', 'reference_allele', 'sample_allele', 'tumorType', 'referenceGenome']].drop_duplicates()
                     for indx, somatic_mutation in uniques.iterrows():
-                        id = "somatic_mutation:"+somatic_mutation['hugoSymbol']+':'+somatic_mutation['chromosome']+':'+str(somatic_mutation['position'])+':'+somatic_mutation['reference_allele']+':'+somatic_mutation['sample_allele']
+                        id = "SNV:"+somatic_mutation['hugoSymbol']+':'+somatic_mutation['chromosome']+':'+str(somatic_mutation['position'])+':'+somatic_mutation['reference_allele']+':'+somatic_mutation['sample_allele']
                         row = somatic_mutation['chromosome']+'\t'+str(somatic_mutation['position'])+'\t'+somatic_mutation['reference_allele']+'\t'+somatic_mutation['sample_allele']+'\t'+id+'\n' #+'\t'+cryptocode.encrypt(somatic_mutation.samples, settings.CRYPTOCODE)+'\n'
                         file1.write(row)
                     file1.close()
@@ -343,8 +343,9 @@ def generate_temp_cgi_query_files(somatic_mutation_annotations: pd.DataFrame = N
             header = "gene\tcna\tsample\n"
             with open("./tmp/cnas.ext", "w") as file2:
                 file2.write(header)
-
-                uniques = cna_annotations[['hugoSymbol', 'alteration', 'referenceGenome', 'tumorType']].drop_duplicates()
+                print("CNA annotations:")
+                print(cna_annotations)
+                uniques = cna_annotations[['hugoSymbol', 'alteration', 'tumorType']].drop_duplicates()
                 print(type(uniques))
                 for indx, cna in uniques.iterrows():
                     print(cna)

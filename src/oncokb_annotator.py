@@ -146,7 +146,7 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
             #print("Updated "+str(updatedf.count())+" CNAs")
         #cna_annotations.drop(columns=cna_annotations.columns[0], axis=1, inplace=True)
         header = False if i > 1 else True
-        cna_annotations.to_csv(output, mode="a", index=False, header=header, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'cgi_level', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+        cna_annotations.to_csv(output, mode="a", index=False, header=header, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'referenceGenome', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'cgi_level', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)
         trdf.to_csv("treatments.csv", mode="a", header=header, index=False, sep="\t")
     else:
