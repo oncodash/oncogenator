@@ -5,6 +5,7 @@
 #SBATCH --error=./logs/%A_%a.err
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=5G
+##SBATCH --partition=hautaniemi-epouta
 
 echo $1
 ODANNOTATOR_PATH="/mnt/storageBig8/home/aimaaral/dev/oncogenator"
@@ -16,7 +17,6 @@ sample=$(basename $path .csv)
 echo $sample
 source $ODANNOTATOR_PATH/venv/bin/activate
 
-echo /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_cnv/copyNumber_allMatched/v2.9/cnGenesFolder/${sample}.cnGenes.csv
 #srun python $ODANNOTATOR_PATH/main.py --annotator local --copy_number_alterations /mnt/storageSmall8/work/aimaaral/oncodash/cnGenesFolder/${sample}.cnGenes.csv --ascatestimates /mnt/storageSmall8/work/aimaaral/oncodash/combinedAscatEstimates.csv --output /mnt/storageBig8/home/aimaaral/dev/oncogenator/output/${sample}.csv --cores 1
 #python $ODANNOTATOR_PATH/src/local_annotator.py --copy_number_alterations /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_cnv/copyNumber_allMatched/v2.9/cnGenesFolder/${sample}.cnGenes.csv --ascatestimates /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_cnv/copyNumber_allMatched/v2.9/combinedAscatEstimates.csv --output /mnt/storageBig8/home/aimaaral/dev/oncogenator/output/local/cna/${sample}.csv
-python $ODANNOTATOR_PATH/src/external_annotator.py --copy_number_alterations /mnt/storageBig8/home/aimaaral/dev/oncogenator/output/local/cna/${sample}.csv --oncokbcna --output /mnt/storageBig8/home/aimaaral/dev/oncogenator/output/ext/cna/${sample}.csv
+python $ODANNOTATOR_PATH/src/external_annotator.py --copy_number_alterations $1/${sample}.csv --oncokbcna --output $ODANNOTATOR_PATH/output/ext/cna/${sample}.csv

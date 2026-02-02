@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import argparse
 import time
@@ -29,7 +30,8 @@ Examples:
 
 def main(**kwargs):
 
-    output = kwargs.get("output", ".")
+    output = kwargs.get("output")
+    
     if kwargs["oncokbcna"] and kwargs["copy_number_alterations"]:
 
         cnas = pd.read_csv(kwargs["copy_number_alterations"], sep="\t")
@@ -37,21 +39,26 @@ def main(**kwargs):
         cnas['mutationEffectDescription'] = ""
         cnas['gene_role'] = ""
         cnas['citationPMids'] = ""
-        cnas['level_of_evidence'] = ""
-        cnas['cgi_level'] = ""
+        #cnas['level_of_evidence'] = ""
+        #cnas['cgi_level'] = ""
         cnas['geneSummary'] = ""
         cnas['variantSummary'] = ""
         cnas['tumorTypeSummary'] = ""
 
         # Query in chunks of 5000
-        chunks = [cnas[x:x + 4999] for x in range(0, len(cnas), 5000)]
+        chunks = [cnas[x:x + 5000] for x in range(0, len(cnas), 5000)]
         i = 0
         for c in chunks:
-            i += 1
             query_oncokb_cnas_to_csv(c, output, i)
+            i += 1
 
 
     if kwargs["oncokbsnv"] and kwargs["somatic_variants"]:
+
+        if os.path.exists(output):
+            print(f"Output file {output} exists! Skipping..")
+            return
+        
         somatic_mutations = pd.read_csv(kwargs["somatic_variants"], sep="\t")
 
         somatic_mutations['consequence'] = ""
@@ -59,45 +66,63 @@ def main(**kwargs):
         somatic_mutations['mutationEffectDescription'] = ""
         somatic_mutations['gene_role'] = ""
         somatic_mutations['citationPMids'] = ""
-        somatic_mutations['level_of_evidence'] = ""
-        somatic_mutations['cgi_level'] = ""
+        #somatic_mutations['level_of_evidence'] = ""
+        #somatic_mutations['cgi_level'] = ""
         somatic_mutations['geneSummary'] = ""
         somatic_mutations['variantSummary'] = ""
         somatic_mutations['tumorTypeSummary'] = ""
 
         # Query in chunks of 5000
-        chunks = [somatic_mutations[x:x + 4999] for x in range(0, len(somatic_mutations), 5000)]
+        chunks = [somatic_mutations[x:x + 5000] for x in range(0, len(somatic_mutations), 5000)]
         i = 0
         for c in chunks:
-            i += 1
             query_oncokb_somatic_mutations(c, output, i)
+            i += 1
 
     if kwargs["cgiquery"] and kwargs["somatic_variants"]:
         somatic_mutations = pd.read_csv(kwargs["somatic_variants"], sep="\t", dtype='string')
 
         if kwargs["cgijobid"]:
             jobid = kwargs["cgijobid"]
+            while query_cgi_job(jobid, output, somatic_mutation_annotations=somatic_mutations) == 0:
+                print("Waiting 30 seconds for the next try...")
+                time.sleep(30)
         else:
-            generate_temp_cgi_query_files(somatic_mutation_annotations=somatic_mutations)
-            jobid = launch_cgi_job_with_mulitple_variant_types(mutations_file="./tmp/somatic_mutations.ext", cancer_type="OVSE", reference="hg38").replace('"', '')
-        time.sleep(30)
-        while query_cgi_job(jobid, output, somatic_mutation_annotations=somatic_mutations) == 0:
-            print("Waiting 30 seconds for the next try...")
-            time.sleep(30)
+            # Query in chunks of 5000
+            chunks = [somatic_mutations[x:x + 5000] for x in range(0, len(somatic_mutations), 5000)]
+            i = 0
+            for c in chunks:
+                i += 1
+
+                generate_temp_cgi_query_files(somatic_mutation_annotations=c)
+                jobid = launch_cgi_job_with_mulitple_variant_types(mutations_file="./tmp/somatic_mutations.ext", cancer_type="CANCER", reference="hg38")#.replace('"', '')
+                time.sleep(30)
+            
+                while query_cgi_job(jobid, output, somatic_mutation_annotations=c, mode="a") == 0:
+                    print("Waiting 30 seconds for the next try...")
+                    time.sleep(30)
 
     if kwargs["cgiquery"] and kwargs["copy_number_alterations"]:
         cnas = pd.read_csv(kwargs["copy_number_alterations"], sep="\t", dtype='string')
 
         if kwargs["cgijobid"]:
             jobid = kwargs["cgijobid"]
-        else:
-            generate_temp_cgi_query_files(cna_annotations=cnas)
-            jobid = launch_cgi_job_with_mulitple_variant_types(cnas_file="./tmp/cnas.ext", cancer_type="OVSE", reference="hg38").replace('"', '')
-
-        time.sleep(30)
-        while query_cgi_job(jobid, output, cna_annotations=cnas) == 0:
-            print("Waiting 30 seconds for the next try...")
             time.sleep(30)
+            while query_cgi_job(jobid, output, cna_annotations=cnas) == 0:
+                print("Waiting 30 seconds for the next try...")
+                time.sleep(30)
+        else:
+            chunks = [cnas[x:x + 5000] for x in range(0, len(cnas), 5000)]
+            i = 0
+            for c in chunks:
+                i += 1
+                generate_temp_cgi_query_files(cna_annotations=c)
+                jobid = launch_cgi_job_with_mulitple_variant_types(cnas_file="./tmp/cnas.ext", cancer_type="CANCER", reference="hg38")#.replace('"', '')
+
+                time.sleep(30)
+                while query_cgi_job(jobid, output, cna_annotations=c, mode="a") == 0:
+                    print("Waiting 30 seconds for the next try...")
+                    time.sleep(30)
 
 if __name__ == "__main__":
 

@@ -85,12 +85,11 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
 
     # TODO: No need to query same alteration for every patient and sample, get unique by cnas[i].hugoSymbol cnas[i].alteration
 
-    cnas = cna_annotations.groupby(
-        ['hugoSymbol', 'alteration', 'referenceGenome', 'tumorType'])
+    #cnas = cna_annotations.groupby(['hugoSymbol', 'alteration', 'referenceGenome', 'tumorType'])
     uniques = []
-    for keys, group in cnas:
+    for keys, row in cna_annotations.iterrows():
         uniques.append(dict(
-            {'hugoSymbol': keys[0], 'alteration': keys[1], 'referenceGenome': keys[2], 'tumorType': keys[3]}))
+            {'hugoSymbol': row['hugoSymbol'], 'alteration': row['alteration'], 'referenceGenome': row['referenceGenome'], 'tumorType': row['tumorType']}))
 
     data = [
         {
@@ -112,9 +111,10 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
     #response = urllib3.PoolManager().request("POST", api_url, body=data, headers={'accept':'application/json','Content-Type':'application/json','Authorization':'Bearer '})
     response = httpx.post(api_url, json=data, headers=header, timeout=None)
 
-
     if (response.status_code == 200):
         treatments = []
+        print(response.text)
+
         respjson = json.loads(response.text)
 
         for rjson in respjson:
@@ -132,7 +132,8 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
                 cna_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
                 cna_annotations.at[indxs,'gene_role'] = handle_string_field(rjson["mutationEffect"]["knownEffect"])
                 cna_annotations.at[indxs,'citationPMids'] = handle_string_field(",".join(rjson["mutationEffect"]["citations"]["pmids"]))
-                cna_annotations.at[indxs,'level_of_evidence'] = handle_string_field(rjson["highestSensitiveLevel"]) if handle_string_field(rjson["highestSensitiveLevel"]) else handle_string_field(rjson["highestResistanceLevel"])
+                #cna_annotations.at[indxs,'level_of_evidence'] = handle_string_field(rjson["highestSensitiveLevel"]) if handle_string_field(rjson["highestSensitiveLevel"]) else handle_string_field(rjson["highestResistanceLevel"])
+
                 # Hematologic malignancies only
                 #updatedf['prognosticSummary'] = handle_string_field(rjson["prognosticSummary"])
                 #updatedf['diagnosticSummary'] = handle_string_field(rjson["diagnosticSummary"])
@@ -145,8 +146,8 @@ def query_oncokb_cnas_to_csv(cna_annotations: pd.DataFrame, output, i):
 
             #print("Updated "+str(updatedf.count())+" CNAs")
         #cna_annotations.drop(columns=cna_annotations.columns[0], axis=1, inplace=True)
-        header = False if i > 1 else True
-        cna_annotations.to_csv(output, mode="a", index=False, header=header, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'referenceGenome', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'cgi_level', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+        header = True if i == 0 else False
+        cna_annotations.to_csv(output, index=False, header=True, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'referenceGenome', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)
         trdf.to_csv("treatments.csv", mode="a", header=header, index=False, sep="\t")
     else:
@@ -218,15 +219,15 @@ def query_oncokb_somatic_mutations(somatic_mutation_annotations: pd.DataFrame, o
                 somatic_mutation_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
                 somatic_mutation_annotations.at[indxs,'gene_role'] = handle_string_field(rjson["mutationEffect"]["knownEffect"])
                 somatic_mutation_annotations.at[indxs,'citationPMids'] = handle_string_field(",".join(rjson["mutationEffect"]["citations"]["pmids"]))
-                somatic_mutation_annotations.at[indxs,'level_of_evidence'] = handle_string_field(rjson["highestSensitiveLevel"]) if handle_string_field(rjson["highestSensitiveLevel"]) else handle_string_field(rjson["highestResistanceLevel"])
+                #somatic_mutation_annotations.at[indxs,'level_of_evidence'] = handle_string_field(rjson["highestSensitiveLevel"]) if handle_string_field(rjson["highestSensitiveLevel"]) else handle_string_field(rjson["highestResistanceLevel"])
                 somatic_mutation_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
                 somatic_mutation_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
                 somatic_mutation_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
                 treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'SNV', alteration))
 
         print(somatic_mutation_annotations)
-        header = False if i > 1 else True
-        somatic_mutation_annotations.to_csv(output, mode="a", header=header, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'level_of_evidence', 'cgi_level', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+        header = True if i == 0 else False
+        somatic_mutation_annotations.to_csv(output, header=True, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
         trdf = pd.DataFrame(treatments)
         trdf.to_csv("treatments.csv", header=header, mode="a", index=False, sep="\t")
         #print("Updated " + str(len(somatic_mutationdf)) + " CNAs")

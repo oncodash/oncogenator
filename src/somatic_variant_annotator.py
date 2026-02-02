@@ -6,15 +6,21 @@ from scipy import stats
 #import dask.dataframe as dd
 import pandas as pd
 
+# Default thresholds
+expression_threshold = 5
+homogeneity_threshold=0.05
+ada_score_threshold=0.95
+rf_score_threshold=0.95
+tumor_type="CANCER" # or eg. HGSOC
 
 class SomaticVariantAnnotator:
-    def __init__(self, refgenome="GRCh38", tumortype="HGSOC", cnas=None, ascats=None, samples=None, homogeneity_threshold=0.05, ada_score_threshold=0.95, rf_score_threshold=0.95):
+    def __init__(self, refgenome="GRCh38", tumortype=tumor_type, cnas=None, ascats=None, samples=None, homogeneity_threshold=homogeneity_threshold, ada_score_threshold=ada_score_threshold, rf_score_threshold=rf_score_threshold):
         """
                 Initialize the SomaticVariantAnnotator class.
 
                 Parameters:
                 refgenome (str): Reference genome version, default is "GRCh38".
-                tumortype (str): Type of tumor, default is "HGSOC".
+                tumortype (str): Type of tumor, default is "CANCER".
                 cnas (DataFrame): DataFrame containing CNA data.
                 ascats (DataFrame): DataFrame containing ASCAT results.
                 samples (list): List of sample identifiers.
@@ -84,7 +90,7 @@ class SomaticVariantAnnotator:
                 isoforms.append(isoform)
         return list(dict.fromkeys(isoforms))
 
-    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth=0, AM_class="", amisscore=0.0, classification="", pathogenecity="", refCount=0, altCount=0):
+    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth=0, AM_class="", amisscore=0.0, classification="", pathogenecity="", expressed=False, refCount=0, altCount=0):
         """
                 Create an somatic_mutation annotation.
 
@@ -132,7 +138,7 @@ class SomaticVariantAnnotator:
             'referenceGenome': "GRCh38",
             'hugoSymbol': gene,
             'alteration': alteration,
-            'tumorType': "HGSOC",
+            'tumorType': tumor_type,
             'consequence': consequence,
             'cytoBand': handle_string_field(row['cytoBand']),
             'exonicFuncMane': handle_string_field(row["ExonicFunc.MANE"]),
@@ -163,10 +169,14 @@ class SomaticVariantAnnotator:
             'AM_score': handle_decimal_field(amisscore),
             'cosmic_id': handle_string_field(row["COSMIC_ID"]),
             'clinvar_id': handle_string_field(row["CLNALLELEID"]),
+            'clinvar_sig': handle_string_field(row["CLNSIG"]), 
+            'clinvar_assoc': handle_string_field(row["CLNDN"]), 
+            'clinvar_status': handle_string_field(row["CLNREVSTAT"]),
             'classification': handle_string_field(classification),
             'pathogenecity': handle_string_field(pathogenecity),
             'refCount': refCount,
-            'altCount': altCount
+            'altCount': altCount,
+            'expressed': expressed
         })
 
     def filter_and_classify_somatic_mutations(self, row):
@@ -266,12 +276,14 @@ class SomaticVariantAnnotator:
                         else:
                             continue
 
-                alteration = f"{gene}:{row['CHROM']}:{row['POS']}:{row['REF']}>{row['ALT']}"
+                alteration = f"{gene}:{row['CHROM']}:{row['POS']}:{row['REF']}:{row['ALT']}"
                 refCount = rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT']), 'refCount'].values[0] if len(rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT'])]) > 0 else 0
                 altCount = rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT']), 'altCount'].values[0] if len(rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT'])]) > 0 else 0
-                                              
+                
+                # Expression threshold: altCount > 5
+                expressed = True if (altCount) > expression_threshold else False              
                 if sv_class:
-                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth=depth, AM_class=AM_class, amisscore=AM_score, classification=sv_class, pathogenecity=pathogenecity, refCount=refCount, altCount=altCount))  
+                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth=depth, AM_class=AM_class, amisscore=AM_score, classification=sv_class, pathogenecity=pathogenecity, expressed=expressed, refCount=refCount, altCount=altCount))  
 
         return somatic_mutation_annotations
 

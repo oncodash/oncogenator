@@ -71,12 +71,16 @@ def process_copy_number_alterations(kwargs):
 
 
 def process_somatic_variants(kwargs):
+    output = kwargs["output"]
+    if os.path.exists(output):
+        print(f"Output file {output} exists! Skipping..")
+        return
+    
     if kwargs['pid']:
         somatic_mutation_file = f"{kwargs['somatic_variants']}/{kwargs['pid']}.csv"
     else:
         somatic_mutation_file = kwargs['somatic_variants']
 
-    output = kwargs["output"]
     cores = int(kwargs.get("cores", 1))
     refgenome = kwargs.get("refgen", CGI_DEFAULT_REFERENCE)
     tumortype = kwargs.get("tumortype", CGI_DEFAULT_CANCER_TYPE)
