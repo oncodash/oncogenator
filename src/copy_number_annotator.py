@@ -3,7 +3,7 @@ from utils import *
 
 class CopyNumberAnnotator:
 
-    def __init__(self, refgenome="GRCh38", tumortype="HGSOC", ascats=None, ploidy_coeff=2.5):
+    def __init__(self, refgenome="GRCh38", tumortype="HGSOC", ascats=None, ploidy_coeff=2.5, sample_info=None):
         """
             Initialize the CopyNumberAnnotator class.
 
@@ -17,6 +17,14 @@ class CopyNumberAnnotator:
         self.tumortype = tumortype
         self.ascats = ascats
         self.ploidy_coeff = ploidy_coeff
+        self.sample_info = sample_info
+
+    @staticmethod
+    def _to_bool(series):
+        return series.astype(str).str.strip().str.lower().map({
+            "true": True,
+            "false": False,
+    })
 
     def filter_cnas_by_ploidy(self, row):
         """
@@ -32,6 +40,19 @@ class CopyNumberAnnotator:
         ploidy = self.ascats.loc[self.ascats['sample'] == row['sample']]['ploidy']
         nminor = handle_int_field(row['nMinor'])
         nmajor = handle_int_field(row['nMajor'])
+        passes_sample_info_filters = True
+        if self.sample_info is not None:
+            sinfo = self.sample_info.loc[self.sample_info['sample'] == row['sample']]
+            usable = self._to_bool(sinfo["usable"]) == True
+            contam_filter = self._to_bool(sinfo["contamFilter"]) == False
+            duplicate = self._to_bool(sinfo["duplicate"]) == False
+            cell_line = self._to_bool(sinfo["cellLine"]) == False
+            passes_sample_info_filters = (usable & contam_filter & duplicate & cell_line).all()
+
+        if not passes_sample_info_filters:
+            print(f"Sample {row['sample']} failed sample info filters. Skipping...")
+            return None
+
         if nminor and nmajor:
             cn = int(nminor) + int(nmajor)
             ploidy = ploidy.iloc[0]
@@ -42,6 +63,7 @@ class CopyNumberAnnotator:
                         # Use cohort code here, map to pid later to reduce queries sample name includes cohort code which is mapped to patient id
                         'sample_id': handle_string_field(row["sample"]),
                         'referenceGenome': self.refgenome,
+                        'ensembl_id': handle_string_field(row["ID"]),
                         'hugoSymbol': handle_string_field(row["Gene"]),
                         'alteration': handle_cn_type_field(row["CNstatus"]),
                         'tumorType': handle_string_field(self.tumortype),

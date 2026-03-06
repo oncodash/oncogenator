@@ -33,6 +33,9 @@ def main(**kwargs):
     output = kwargs.get("output")
     
     if kwargs["oncokbcna"] and kwargs["copy_number_alterations"]:
+        if os.path.exists(output):
+            print(f"Output file {output} exists! Skipping..")
+            return
 
         cnas = pd.read_csv(kwargs["copy_number_alterations"], sep="\t")
         cnas['oncogenic'] = ""
@@ -46,11 +49,12 @@ def main(**kwargs):
         cnas['tumorTypeSummary'] = ""
 
         # Query in chunks of 5000
-        chunks = [cnas[x:x + 5000] for x in range(0, len(cnas), 5000)]
-        i = 0
-        for c in chunks:
-            query_oncokb_cnas_to_csv(c, output, i)
-            i += 1
+        query_oncokb_cnas_to_csv(cnas, output, 0)
+        # chunks = [cnas[x:x + 30000] for x in range(0, len(cnas), 30000)]
+        # i = 0
+        # for c in chunks:
+        #     query_oncokb_cnas_to_csv(c, output, i)
+        #     i += 1
 
 
     if kwargs["oncokbsnv"] and kwargs["somatic_variants"]:
@@ -72,12 +76,14 @@ def main(**kwargs):
         somatic_mutations['variantSummary'] = ""
         somatic_mutations['tumorTypeSummary'] = ""
 
-        # Query in chunks of 5000
-        chunks = [somatic_mutations[x:x + 5000] for x in range(0, len(somatic_mutations), 5000)]
-        i = 0
-        for c in chunks:
-            query_oncokb_somatic_mutations(c, output, i)
-            i += 1
+        # Query in chunks of 30000
+        # chunks = [somatic_mutations[x:x + 5000] for x in range(0, len(somatic_mutations), 5000)]
+        # i = 0
+        # for c in chunks:
+        #     query_oncokb_somatic_mutations(c, output, i)
+        #     i += 1
+        #     time.sleep(30) # To avoid hitting API rate limits
+        query_oncokb_somatic_mutations(somatic_mutation_annotations=somatic_mutations, output=output, i=1)
 
     if kwargs["cgiquery"] and kwargs["somatic_variants"]:
         somatic_mutations = pd.read_csv(kwargs["somatic_variants"], sep="\t", dtype='string')

@@ -78,6 +78,8 @@ def main():
                         default=0.95)
     parser.add_argument("--ada_score_threshold", type=float, help="AdaBoost score threshold for variant filtering",
                         default=0.95)
+    parser.add_argument("--sample_info", type=str,
+                        help="Path to sample info file used for CNA sample filtering")
     # External annotator specific arguments
     parser.add_argument("--oncokbcna", action="store_true", help="Query OncoKB for copy number alterations")
     parser.add_argument("--oncokbsnv", action="store_true", help="Query OncoKB for somatic mutations")

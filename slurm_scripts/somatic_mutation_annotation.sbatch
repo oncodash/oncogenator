@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=csomatic_mutation_annotation
+#SBATCH --job-name=somatic_mutation_annotation
 #SBATCH --output=./logs/%A_%a.txt
 #SBATCH --error=./logs/%A_%a.err
 #SBATCH --cpus-per-task=1
@@ -16,7 +16,7 @@ echo $sample
 source $ODANNOTATOR_PATH/venv/bin/activate
 
 #srun python $ODANNOTATOR_PATH/main.py --annotator local --somatic_variants /mnt/storageSmall8/work/aimaaral/oncodash/byPatient_CSVs/ --cn_annotations /mnt/storageSmall8/work/aimaaral/oncodash/cnGenesFolder/ --ascatestimates /mnt/storageSmall8/work/aimaaral/oncodash/combinedAscatEstimates.csv --output /mnt/storageSmall8/work/aimaaral/oncodash/somatic_mutation_annotations/${pid}.csv --pid ${pid} --cores 1
-#python $ODANNOTATOR_PATH/src/local_annotator.py --somatic_variants /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_variants/variants_v4.10/byPatient_CSVs/ --cn_annotations /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_cnv/copyNumber_allMatched/v2.9/cnGenesFolder --ascatestimates /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_cnv/copyNumber_allMatched/v2.9/combinedAscatEstimates.csv --output /mnt/storageBig8/home/aimaaral/dev/oncogenator/output/local/snv/${sample}.csv --pid ${sample}
+#python $ODANNOTATOR_PATH/src/local_annotator.py --somatic_variants /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_variants/variants_v4.10/byPatient_CSVs/ --cn_annotations /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_cnv/copyNumber_allMatched/v2.9/cnGenesFolder --ascatestimates /mnt/storageBig8/resources/processed_data/HERCULES/WGS_somatic_cnv/copyNumber_allMatched/v2.9/combinedAscatEstimates.csv --rna_path /mnt/storageBig8/work/joikkone/cohort/mutations_in_RNA/result_SNV_calling_RNA/ --sample_info /mnt/storageBig8/resources/processed_data/HERCULES/WGSbams/sample_info_extended.csv --output /mnt/storageBig8/home/aimaaral/dev/oncogenator/output/local/snv/${sample}.csv --pid ${sample}
 python $ODANNOTATOR_PATH/src/external_annotator.py --oncokbsnv --somatic_variants /mnt/storageBig8/home/aimaaral/dev/oncogenator/output/local/snv/${sample}.csv --output /mnt/storageBig8/home/aimaaral/dev/oncogenator/output/ext/snv/${sample}.csv
 
 # CGI external annotation

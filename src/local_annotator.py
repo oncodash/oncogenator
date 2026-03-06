@@ -9,6 +9,7 @@ from utils import df_apply
 from somatic_variant_annotator import SomaticVariantAnnotator
 from config import CGI_DEFAULT_CANCER_TYPE, CGI_DEFAULT_REFERENCE
 
+
 '''
     Usage: local_annotator.py [OPTIONS]
     
@@ -55,16 +56,24 @@ def main(**kwargs):
 
 def process_copy_number_alterations(kwargs):
     output = kwargs["output"]
+
+    if os.path.exists(output):
+        print(f"Output file {output} exists! Skipping..")
+        return
+
     cores = int(kwargs.get("cores", 1))
     cna_data = pd.read_csv(kwargs["copy_number_alterations"], sep="\t", encoding='utf-8')
+    sample_info_file = kwargs.get("sample_info") if kwargs.get("sample_info", None) else None
 
     refgenome = kwargs.get("refgen", CGI_DEFAULT_REFERENCE)
     ploidy_coeff = float(kwargs.get("ploidy_threshold", 2.5))
     tumortype = kwargs.get("tumortype", CGI_DEFAULT_CANCER_TYPE)
 
     ascats = pd.read_csv(kwargs["ascatestimates"], sep="\t", encoding='utf-8')
-    annotator = CopyNumberAnnotator(refgenome=refgenome, tumortype=tumortype, ascats=ascats, ploidy_coeff=ploidy_coeff)
-
+    sample_info = pd.read_csv(sample_info_file, sep="\t", encoding='utf-8') if sample_info_file else None
+    
+    annotator = CopyNumberAnnotator(refgenome=refgenome, tumortype=tumortype, ascats=ascats, ploidy_coeff=ploidy_coeff, sample_info=sample_info)
+    
     cnas_filtered = df_apply(cna_data, annotator.filter_cnas_by_ploidy).dropna()
     cnadf = pd.DataFrame(dict(zip(cnas_filtered.index, cnas_filtered.values))).T
     cnadf.to_csv(output, sep='\t')
@@ -72,6 +81,7 @@ def process_copy_number_alterations(kwargs):
 
 def process_somatic_variants(kwargs):
     output = kwargs["output"]
+
     if os.path.exists(output):
         print(f"Output file {output} exists! Skipping..")
         return
@@ -87,9 +97,12 @@ def process_somatic_variants(kwargs):
     homogeneity_threshold = float(kwargs.get("homogeneity_threshold", 0.05))
     rf_score_threshold = float(kwargs.get("rf_score_threshold", 0.95))
     ada_score_threshold = float(kwargs.get("ada_score_threshold", 0.95))
-
+    rna_path = kwargs.get("rna_path", None) #"/mnt/storageBig8/work/joikkone/cohort/mutations_in_RNA/result_SNV_calling_RNA/"
     ascats = pd.read_csv(kwargs["ascatestimates"], sep="\t", encoding='utf-8')
     somatic_mutations = pd.read_csv(somatic_mutation_file, sep="\t", encoding='utf-8')
+    sample_info_file = kwargs.get("sample_info", None)
+    sample_info = pd.read_csv(sample_info_file, sep="\t", encoding='utf-8') if sample_info_file else None
+
     if kwargs['pid']:
         # Annotate by patient
         cnas = dd.read_csv(f"{kwargs['cn_annotations']}/{kwargs['pid']}*.csv", sep="\t").compute().dropna(subset=['Gene', 'nMinor', 'nMajor', 'LOHstatus'])
@@ -100,7 +113,7 @@ def process_somatic_variants(kwargs):
     samples = cnas['sample'].drop_duplicates()
 
     # Instantiate the SomaticVariantAnnotator
-    annotator = SomaticVariantAnnotator(refgenome=refgenome, tumortype=tumortype, cnas=cnas, ascats=ascats, samples=samples, homogeneity_threshold=homogeneity_threshold, rf_score_threshold=rf_score_threshold, ada_score_threshold=ada_score_threshold)
+    annotator = SomaticVariantAnnotator(refgenome=refgenome, tumortype=tumortype, cnas=cnas, ascats=ascats, samples=samples, rna_path=rna_path, sample_info=sample_info, homogeneity_threshold=homogeneity_threshold, rf_score_threshold=rf_score_threshold, ada_score_threshold=ada_score_threshold)
     somatic_mutations_filtered = df_apply(somatic_mutations, annotator.filter_and_classify_somatic_mutations)
 
     joined = [item for sublist in somatic_mutations_filtered if isinstance(sublist, list) for item in sublist]
@@ -160,6 +173,10 @@ if __name__ == "__main__":
                         help="Random Forest score threshold for variant filtering")
     parser.add_argument("--ada_score_threshold", type=float, default=0.95,
                         help="AdaBoost score threshold for variant filtering")
+    parser.add_argument("--sample_info", type=str, required=False,
+                        help=f"Path to sample info file used for sample filtering")
+    parser.add_argument("--rna_path", type=str, required=False,
+                        help=f"Path to RNA-seq data for expression annotation of somatic mutations") #"/mnt/storageBig8/work/joikkone/cohort/mutations_in_RNA/result_SNV_calling_RNA/"
 
     args = parser.parse_args()
 

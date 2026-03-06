@@ -5,6 +5,7 @@ from utils import *
 from scipy import stats
 #import dask.dataframe as dd
 import pandas as pd
+import re
 
 # Default thresholds
 expression_threshold = 5
@@ -14,7 +15,7 @@ rf_score_threshold=0.95
 tumor_type="CANCER" # or eg. HGSOC
 
 class SomaticVariantAnnotator:
-    def __init__(self, refgenome="GRCh38", tumortype=tumor_type, cnas=None, ascats=None, samples=None, homogeneity_threshold=homogeneity_threshold, ada_score_threshold=ada_score_threshold, rf_score_threshold=rf_score_threshold):
+    def __init__(self, refgenome="GRCh38", tumortype=tumor_type, cnas=None, ascats=None, samples=None, rna_path=None, sample_info=None, homogeneity_threshold=homogeneity_threshold, ada_score_threshold=ada_score_threshold, rf_score_threshold=rf_score_threshold):
         """
                 Initialize the SomaticVariantAnnotator class.
 
@@ -36,7 +37,8 @@ class SomaticVariantAnnotator:
         self.cnas = cnas
         self.refgenome = refgenome
         self.tumortype = tumortype
-
+        self.rna_path = rna_path
+        self.sample_info = sample_info
     @staticmethod
     def get_variant_assoc_cnas(cnas, sid, gene):
         """
@@ -90,7 +92,7 @@ class SomaticVariantAnnotator:
                 isoforms.append(isoform)
         return list(dict.fromkeys(isoforms))
 
-    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth=0, AM_class="", amisscore=0.0, classification="", pathogenecity="", expressed=False, refCount=0, altCount=0):
+    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, ensemble_id="", depth=0, AM_class="", amisscore=0.0, classification="", pathogenecity="", expressed=False, refCount=0, altCount=0):
         """
                 Create an somatic_mutation annotation.
 
@@ -136,6 +138,7 @@ class SomaticVariantAnnotator:
             'reference_allele': handle_string_field(row["REF"]),
             'sample_allele': handle_string_field(row["ALT"]),
             'referenceGenome': "GRCh38",
+            'ensembl_id': ensemble_id,
             'hugoSymbol': gene,
             'alteration': alteration,
             'tumorType': tumor_type,
@@ -179,6 +182,13 @@ class SomaticVariantAnnotator:
             'expressed': expressed
         })
 
+    @staticmethod
+    def _to_bool(series):
+        return series.astype(str).str.strip().str.lower().map({
+            "true": True,
+            "false": False,
+    })
+
     def filter_and_classify_somatic_mutations(self, row):
         """
                 Filter and classify somatic_mutations based on various criteria.
@@ -204,25 +214,41 @@ class SomaticVariantAnnotator:
         rf_score = handle_decimal_field(row["dbscSNV_RF_SCORE"])
 
         for sample_id in self.samples:
+            # TODO filter by sample info
+            passes_sample_info_filters = True
+            if self.sample_info is not None:
+                sinfo = self.sample_info.loc[self.sample_info['sample'] == sample_id]
+                usable = self._to_bool(sinfo["usable"]) == True
+                contam_filter = self._to_bool(sinfo["contamFilter"]) == False
+                duplicate = self._to_bool(sinfo["duplicate"]) == False
+                cell_line = self._to_bool(sinfo["cellLine"]) == False
+                passes_sample_info_filters = (usable & contam_filter & duplicate & cell_line).all()
+
+            if not passes_sample_info_filters:
+                print(f"Sample {sample_id} failed sample info filters. Skipping...")
+                continue
             
             sample_name_split = sample_id.split("_")
             pid = sample_name_split[0]
             siteid = sample_name_split[1]
 
             rna_expression = None
-            for rna_num in range(1, 6):  # Try RNA1 through RNA5
-                try:
-                    rna_path = f"/mnt/storageBig8/work/joikkone/cohort/mutations_in_RNA/result_SNV_calling_RNA/{pid}_{siteid}_RNA{rna_num}-ASEcall-bash/out1.table"
-                    rna_expression = pd.read_csv(rna_path, sep="\t")
-                    if len(rna_expression) > 0:
-                        print(f"Found RNA expression data for {sample_id} in RNA{rna_num}: {len(rna_expression)} records")
-                        break
-                except Exception as e:
-                    continue
-            
-            if rna_expression is None or len(rna_expression) == 0:
-                print(f"No RNA expression data found for sample {sample_id}")
-                continue
+            #Add rna expression data if available
+            if self.rna_path:
+                for rna_num in range(1, 6):  # Try RNA1 through RNA5
+                    try:
+                        rna_path = self.rna_path + f"/{pid}_{siteid}_RNA{rna_num}-ASEcall-bash/out1.table"
+                        rna_expression = pd.read_csv(rna_path, sep="\t")
+                        if len(rna_expression) > 0:
+                            print(f"Found RNA expression data for {sample_id} in RNA{rna_num}: {len(rna_expression)} records")
+                            break
+                    except Exception as e:
+                        print(f"No RNA expression data found {rna_path}. Error: {e}")
+                        continue
+                
+                if rna_expression is None or len(rna_expression) == 0:
+                    print(f"No RNA expression data found for sample {sample_id}")
+                    
 
             tfs = self.ascats.loc[self.ascats['sample'] == sample_id]['purity']
             tf = tfs.iloc[0] if len(tfs) > 0 else 0.0
@@ -234,14 +260,16 @@ class SomaticVariantAnnotator:
                 print(f"Sample not found from somatic variants. Error processing sample {sample_id}: {e}")
                 continue
 
-            geneMANE = handle_string_field(row["Gene.MANE"]).split(';')
+            geneMANE = re.split(r'[;,\s]+', handle_string_field(row["Gene.MANE"]))
             genes = set(geneMANE)
-            geneRefGene = handle_string_field(row["Gene.refGene"]).split(';')
+            geneRefGene = re.split(r'[;,\s]+', handle_string_field(row["Gene.refGene"]))
             for g in geneRefGene:
                 genes.add(g)
 
             for gene in genes:
+                
                 vcnas = self.get_variant_assoc_cnas(self.cnas, sample_id, gene)
+                ensemble_id = handle_string_field(vcnas["ID"]) if len(vcnas) > 0 else None
                 nMajor = handle_cn_field(vcnas['nMajor']) if len(vcnas) > 0 else None
                 nMinor = handle_cn_field(vcnas['nMinor']) if len(vcnas) > 0 else None
                 lohstatus = vcnas['LOHstatus'] if len(vcnas) > 0 else None
@@ -277,13 +305,17 @@ class SomaticVariantAnnotator:
                             continue
 
                 alteration = f"{gene}:{row['CHROM']}:{row['POS']}:{row['REF']}:{row['ALT']}"
-                refCount = rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT']), 'refCount'].values[0] if len(rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT'])]) > 0 else 0
-                altCount = rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT']), 'altCount'].values[0] if len(rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT'])]) > 0 else 0
+                expressed = ""
+                refCount = ""
+                altCount = ""
+                if rna_expression is not None:
+                    refCount = rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT']), 'refCount'].values[0] if len(rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT'])]) > 0 else 0
+                    altCount = rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT']), 'altCount'].values[0] if len(rna_expression.loc[(rna_expression['contig'] == row['CHROM']) & (rna_expression['position'] == row['POS']) & (rna_expression['refAllele'] == row['REF']) & (rna_expression['altAllele'] == row['ALT'])]) > 0 else 0
                 
                 # Expression threshold: altCount > 5
-                expressed = True if (altCount) > expression_threshold else False              
+                    expressed = True if (altCount) > expression_threshold else False       
                 if sv_class:
-                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, depth=depth, AM_class=AM_class, amisscore=AM_score, classification=sv_class, pathogenecity=pathogenecity, expressed=expressed, refCount=refCount, altCount=altCount))  
+                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, ensemble_id=ensemble_id,depth=depth, AM_class=AM_class, amisscore=AM_score, classification=sv_class, pathogenecity=pathogenecity, expressed=expressed, refCount=refCount, altCount=altCount))  
 
         return somatic_mutation_annotations
 

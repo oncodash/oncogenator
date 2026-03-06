@@ -4,9 +4,9 @@ import pandas as pd
 def main(**kwargs):
 
     df = pd.read_csv(kwargs['path'], sep="\t")
-    df = df.drop_duplicates(subset=['alteration_type','alteration','treatment','tumorType'],ignore_index=True)
+    df = df.drop_duplicates(subset=['alteration_type','alteration', 'description', 'treatment','level_of_evidence','tumorType'],ignore_index=True)
     fn = kwargs['path'].split('.')[0]
-    df.to_csv(fn+"_dedup.csv", sep="\t")
+    df.to_csv(fn+"_dedup.csv", sep="\t",index=False)
 
 if __name__ == "__main__":
 

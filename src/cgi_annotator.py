@@ -202,6 +202,150 @@ def query_cgi_job(jobid, output, somatic_mutation_annotations: pd.DataFrame = No
     payload = {'action': 'download'}
     # response = httpx.request("GET",request_url+jobid, headers=headers, fields=payload)
     response = httpx.get(request_url + jobid, params=payload, headers=headers, timeout=None)
+    print("CGI response status code: ", response.status_code)
+    if response.status_code == 200:
+        z = zipfile.ZipFile(io.BytesIO(response.content))
+        treatmentsdf = None
+        cgi_somatic_mutationdf = None
+        cgi_cnadf = None
+        treatments = []
+
+        for fn in z.namelist():
+            base_name = fn.rsplit("/", 1)[-1]
+            if base_name not in {"alterations.tsv", "cna_analysis.tsv", "biomarkers.tsv"}:
+                continue
+            with z.open(fn) as f:
+                df = pd.read_csv(f, sep="\t")
+
+            if base_name == "alterations.tsv":
+                cgi_somatic_mutationdf = df
+            if base_name == "cna_analysis.tsv":
+                cgi_cnadf = df
+            if base_name == "biomarkers.tsv":
+                treatmentsdf = df
+
+        if treatmentsdf is None:
+            print("No CGI biomarkers.tsv found for job id: " + str(jobid))
+            return 0
+
+        cgi_cna_lookup = {}
+        if isinstance(cgi_cnadf, pd.DataFrame) and {'sample', 'driver', 'gene_role'}.issubset(cgi_cnadf.columns):
+            cgi_cna_lookup = cgi_cnadf.drop_duplicates(subset=['sample'], keep='first').set_index('sample')[['driver', 'gene_role']].to_dict(orient='index')
+
+        cgi_snv_lookup = {}
+        if isinstance(cgi_somatic_mutationdf, pd.DataFrame) and {'CGI-Sample ID', 'CGI-Consequence', 'CGI-Oncogenic Summary', 'CGI-Oncogenic Prediction'}.issubset(cgi_somatic_mutationdf.columns):
+            cgi_snv_lookup = cgi_somatic_mutationdf.drop_duplicates(subset=['CGI-Sample ID'], keep='first').set_index('CGI-Sample ID')[['CGI-Consequence', 'CGI-Oncogenic Summary', 'CGI-Oncogenic Prediction']].to_dict(orient='index')
+
+        bioms = treatmentsdf.loc[treatmentsdf['Match'] == 'YES'].copy()
+        bioms['sample_id'] = bioms['Sample ID'].apply(handle_string_field)
+
+        cna_bioms = bioms.loc[bioms['sample_id'].str.startswith('CNA:', na=False)].copy()
+        if not cna_bioms.empty:
+            cna_split = cna_bioms['sample_id'].str.split(':', n=2, expand=True)
+            cna_bioms['hugoSymbol'] = cna_split[1]
+            cna_bioms['cna_alteration'] = cna_split[2]
+            cna_bioms['alteration_key'] = cna_bioms['hugoSymbol'] + ':' + cna_bioms['cna_alteration']
+            
+            for _, row in cna_bioms.iterrows():
+                print("Appending treatment for CNA biomarker: ", row['alteration_key'])
+                treatments.append(handle_treatments_cgi(row, 'CNA', row['alteration_key']))
+
+            if isinstance(cna_annotations, pd.DataFrame) and {'hugoSymbol', 'alteration', 'oncogenic'}.issubset(cna_annotations.columns):
+                cna_updates = cna_annotations.loc[
+                    (cna_annotations['oncogenic'] == "Unknown") | (cna_annotations['oncogenic'].isna()),
+                    ['hugoSymbol', 'alteration']
+                ].reset_index()
+
+                if not cna_updates.empty:
+                    cna_updates = cna_updates.merge(
+                        cna_bioms[['hugoSymbol', 'cna_alteration', 'sample_id']].drop_duplicates(subset=['hugoSymbol', 'cna_alteration'], keep='first'),
+                        left_on=['hugoSymbol', 'alteration'],
+                        right_on=['hugoSymbol', 'cna_alteration'],
+                        how='left'
+                    )
+                    cna_lookup_df = pd.DataFrame.from_dict(cgi_cna_lookup, orient='index').reset_index().rename(columns={'index': 'sample_id'})
+                    cna_updates = cna_updates.merge(cna_lookup_df, on='sample_id', how='left')
+
+                    cna_valid = cna_updates.loc[cna_updates['driver'].notna()]
+                    if not cna_valid.empty:
+                        cna_annotations.loc[cna_valid['index'], 'oncogenic'] = cna_valid['driver'].apply(handle_string_field).values
+                        cna_annotations.loc[cna_valid['index'], 'gene_role'] = cna_valid['gene_role'].apply(handle_string_field).values
+
+        snv_bioms = bioms.loc[bioms['sample_id'].str.startswith('SNV:', na=False)].copy()
+        if not snv_bioms.empty:
+            snv_split = snv_bioms['sample_id'].str.split(':', n=5, expand=True)
+            snv_bioms['alteration_key'] = (
+                snv_split[1].astype(str) + ':' +
+                snv_split[2].astype(str) + ':' +
+                snv_split[3].astype(str) + ':' +
+                snv_split[4].astype(str) + ':' +
+                snv_split[5].astype(str)
+            )
+            for _, row in snv_bioms.iterrows():
+                treatments.append(handle_treatments_cgi(row, 'SNV', row['alteration_key']))
+
+            if isinstance(somatic_mutation_annotations, pd.DataFrame) and {'alteration', 'oncogenic'}.issubset(somatic_mutation_annotations.columns):
+                snv_updates = somatic_mutation_annotations.loc[
+                    (somatic_mutation_annotations['oncogenic'] == "Unknown") | (somatic_mutation_annotations['oncogenic'].isna()),
+                    ['alteration']
+                ].reset_index()
+
+                if not snv_updates.empty:
+                    snv_updates = snv_updates.merge(
+                        snv_bioms[['alteration_key', 'sample_id']].drop_duplicates(subset=['alteration_key'], keep='first'),
+                        left_on='alteration',
+                        right_on='alteration_key',
+                        how='left'
+                    )
+                    snv_lookup_df = pd.DataFrame.from_dict(cgi_snv_lookup, orient='index').reset_index().rename(columns={'index': 'sample_id'})
+                    snv_updates = snv_updates.merge(snv_lookup_df, on='sample_id', how='left')
+
+                    snv_valid = snv_updates.loc[snv_updates['CGI-Oncogenic Summary'].notna()]
+                    if not snv_valid.empty:
+                        somatic_mutation_annotations.loc[snv_valid['index'], 'consequence'] = snv_valid['CGI-Consequence'].apply(handle_string_field).values
+                        somatic_mutation_annotations.loc[snv_valid['index'], 'oncogenic'] = snv_valid['CGI-Oncogenic Summary'].apply(handle_string_field).values
+                        somatic_mutation_annotations.loc[snv_valid['index'], 'gene_role'] = snv_valid['CGI-Oncogenic Prediction'].apply(handle_string_field).values
+
+        if isinstance(somatic_mutation_annotations, pd.DataFrame):
+            somatic_mutation_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+            trdf = pd.DataFrame(treatments)
+            trdf.to_csv("treatments.csv", mode="a", index=False, sep="\t")
+
+        if isinstance(cna_annotations, pd.DataFrame):
+            cna_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+            trdf = pd.DataFrame(treatments)
+            trdf.to_csv("treatments.csv", mode="a", index=False, sep="\t")
+
+        return 1
+    else:
+    #print(response.status_code)
+        print("No CGI results available for job id: "+str(jobid))
+        return 0
+    
+def query_cgi_job_old(jobid, output, somatic_mutation_annotations: pd.DataFrame = None, cna_annotations: pd.DataFrame = None, mode="x"):
+    """
+    Query the CGI API with a job ID and save the results to the database.
+
+    Parameters:
+    jobid (str): The job ID for the CGI job to query.
+    somatic_mutation_annotations (DataFrame): DataFrame containing somatic_mutation annotations.
+    cna_annotations (DataFrame): DataFrame containing CNA annotations.
+
+    Returns:
+    int: 1 if successful, otherwise 0.
+    """
+    request_url = CGI_API_URL + "/"
+    print("Request CGI job by id")
+
+    cgilogin = CGI_LOGIN
+    cgitoken = CGI_TOKEN
+
+    headers = {
+        'Authorization': cgilogin + ' ' + cgitoken
+    }
+    payload = {'action': 'download'}
+    # response = httpx.request("GET",request_url+jobid, headers=headers, fields=payload)
+    response = httpx.get(request_url + jobid, params=payload, headers=headers, timeout=None)
 
     if response.status_code == 200:
         z = zipfile.ZipFile(io.BytesIO(response.content))
@@ -278,12 +422,12 @@ def query_cgi_job(jobid, output, somatic_mutation_annotations: pd.DataFrame = No
                     somatic_mutation_annotations.at[indxs, 'gene_role'] = handle_string_field(cgi_somatic_mutation["CGI-Oncogenic Prediction"]),
 
         if isinstance(somatic_mutation_annotations, pd.DataFrame):
-            somatic_mutation_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+            somatic_mutation_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
             trdf = pd.DataFrame(treatments)
             trdf.to_csv("treatments.csv", mode="a", index=False, sep="\t")
 
         if isinstance(cna_annotations, pd.DataFrame):
-            cna_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'tumorType', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+            cna_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
             trdf = pd.DataFrame(treatments)
             trdf.to_csv("treatments.csv", mode="a", index=False, sep="\t")
 
