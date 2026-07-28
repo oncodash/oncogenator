@@ -4,8 +4,8 @@ Contains API credentials and settings.
 """
 
 # CGI (Cancer Genome Interpreter) API credentials
-CGI_LOGIN = ""
-CGI_TOKEN = ""
+CGI_LOGIN = "ilari.maarala@helsinki.fi"
+CGI_TOKEN = "f7ab7f3911b1194f4629"
 
 # CGI API settings
 CGI_API_URL = "https://www.cancergenomeinterpreter.org/api/v1"
@@ -13,7 +13,7 @@ CGI_DEFAULT_CANCER_TYPE = "CANCER" #HGSOC for high serous ovarian, LUNG for lung
 CGI_DEFAULT_REFERENCE = "hg38"
 
 # OncoKB API credentials
-ONCOKB_TOKEN = ""
+ONCOKB_TOKEN = "a35f6d69-8895-4742-8b3d-16bd7d765793"
 
 # OncoKB API settings
 ONCOKB_API_URL = "https://www.oncokb.org/api/v1"

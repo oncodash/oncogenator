@@ -53,9 +53,17 @@ class CopyNumberAnnotator:
             print(f"Sample {row['sample']} failed sample info filters. Skipping...")
             return None
 
+        if not (nminor and nmajor):
+            print(f"DEBUG: Sample {row['sample']} gene {row.get('Gene', '?')} skipped — nMinor={nminor!r} or nMajor={nmajor!r} is missing/zero.")
+            return None
+
         if nminor and nmajor:
             cn = int(nminor) + int(nmajor)
-            ploidy = ploidy.iloc[0]
+            ploidy_val = ploidy.iloc[0] if len(ploidy) > 0 else None
+            if ploidy_val is None or float(ploidy_val) <= 0:
+                print(f"DEBUG: Sample {row['sample']} gene {row.get('Gene', '?')} skipped — ploidy={ploidy_val!r} is missing or non-positive. nminor={nminor!r}, nmajor={nmajor!r}, cn={cn}. Ploidy coeff={self.ploidy_coeff * float(ploidy_val) if ploidy_val is not None else 'N/A'}.")
+                return None
+            ploidy = ploidy_val
             if ploidy > 0 and float(ploidy) > 0:
                 if cn < 1 or cn > self.ploidy_coeff * float(ploidy):
                     return pd.Series({
@@ -90,4 +98,6 @@ class CopyNumberAnnotator:
                         'breaksInGene': handle_string_field(row["breaksInGene"]),
 
                     })
+            else:
+                print(f"DEBUG: Sample {row['sample']} gene {row.get('Gene', '?')} skipped — cn={cn} does not meet threshold (must be <1 or >{self.ploidy_coeff} * ploidy={float(ploidy):.2f}).")
         return None

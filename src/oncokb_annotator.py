@@ -222,8 +222,8 @@ def query_oncokb_somatic_mutations(somatic_mutation_annotations: pd.DataFrame, o
                 somatic_mutation_annotations.at[indxs, 'alteration'] = alteration
                 somatic_mutation_annotations.at[indxs, 'referenceGenome'] = handle_string_field(rjson["query"]["referenceGenome"])
                 somatic_mutation_annotations.at[indxs,'tumorType'] = handle_string_field(rjson["query"]["tumorType"])
-                somatic_mutation_annotations.at[indxs,'consequence'] = handle_string_field(rjson["query"]["consequence"])
-                somatic_mutation_annotations.at[indxs,'oncogenic'] = handle_string_field(rjson["oncogenic"])
+                somatic_mutation_annotations.at[indxs,'oncokb_consequence'] = handle_string_field(rjson["query"]["consequence"])
+                somatic_mutation_annotations.at[indxs,'oncokb_oncogenic'] = handle_string_field(rjson["oncogenic"])
                 somatic_mutation_annotations.at[indxs,'mutationEffectDescription'] = handle_string_field(rjson["mutationEffect"]["description"])
                 somatic_mutation_annotations.at[indxs,'gene_role'] = handle_string_field(rjson["mutationEffect"]["knownEffect"])
                 somatic_mutation_annotations.at[indxs,'citationPMids'] = handle_string_field(",".join(rjson["mutationEffect"]["citations"]["pmids"]))
@@ -231,13 +231,27 @@ def query_oncokb_somatic_mutations(somatic_mutation_annotations: pd.DataFrame, o
                 somatic_mutation_annotations.at[indxs,'geneSummary'] = handle_string_field(rjson["geneSummary"])
                 somatic_mutation_annotations.at[indxs,'variantSummary'] = handle_string_field(rjson["variantSummary"])
                 somatic_mutation_annotations.at[indxs,'tumorTypeSummary'] = handle_string_field(rjson["tumorTypeSummary"])
+                print(row)
+                if somatic_mutation_annotations.at[indxs, 'consensus_pathogenecity_source'] is not None and somatic_mutation_annotations.at[indxs, 'consensus_pathogenecity_source'] == "ClinVar":
+                    consensus_pathogenecity = somatic_mutation_annotations.at[indxs, 'consensus_pathogenecity']
+                    consensus_prediction_source = somatic_mutation_annotations.at[indxs, 'consensus_pathogenecity_source'] 
+                else:   
+                    consensus_pathogenecity, consensus_prediction_source = get_consensus_pathogenecity_prediction(
+                        clinvar_pathogenecity=handle_string_field(row['clinvar_pathogenecity']) if 'clinvar_pathogenecity' in row else None,
+                        consensus_pathogenecity_source=handle_string_field(row['consensus_pathogenecity_source']) if 'consensus_pathogenecity_source' in row else None,
+                        gene_role=handle_string_field(rjson["mutationEffect"]["knownEffect"]),
+                        oncokb_oncogenic=handle_string_field(rjson["oncogenic"])
+                    )
+                somatic_mutation_annotations.at[indxs, 'consensus_pathogenecity'] = consensus_pathogenecity
+                somatic_mutation_annotations.at[indxs, 'consensus_pathogenecity_source'] = consensus_prediction_source
                 # FIXME: for some reason treatments are not being handled properly for SNVs
             
                 treatments.extend(handle_treatments_oncokb(rjson["treatments"], 'SNV', alteration))
 
         #print(somatic_mutation_annotations.columns)
         header = True if i == 0 else False
-        somatic_mutation_annotations.to_csv(output, header=True, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+        print(somatic_mutation_annotations.columns)
+        somatic_mutation_annotations.to_csv(output, header=True, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'consequence', 'annovar_consequence', 'oncokb_consequence', 'oncokb_oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary',  'expressed', 'refCount', 'altCount', 'consensus_pathogenecity', 'consensus_pathogenecity_source'])
         trdf = pd.DataFrame(treatments)
         trdf.to_csv(output.split(".")[0]+"_treatments.csv", header=True, index=False, sep="\t")
         #print("Updated " + str(len(somatic_mutationdf)) + " CNAs")

@@ -1,3 +1,4 @@
+from ast import Add
 import os
 import pandas as pd
 import argparse
@@ -64,9 +65,39 @@ def main(**kwargs):
             return
         
         somatic_mutations = pd.read_csv(kwargs["somatic_variants"], sep="\t")
+              
+        #TODO: Add consesus_pathogenecity
+        # consensus_pathogenecity = None
+        # consensus_prediction_source = None
+        # if pathogenecity is not None:
+        #     if pathogenecity == "pathogenic" or pathogenecity == "likely_pathogenic":
+        #         consensus_pathogenecity = True
+        #     if pathogenecity == "benign" or pathogenecity == "likely_benign":
+        #         consensus_pathogenecity = False
+        #     consensus_prediction_source = "ClinVar"
+        
+        # if consensus_pathogenecity is None:
+        #     if gene_role == "loss_of_function" and conseguence = Truncating or Splicing:
+        #             consensus_pathogenecity = True
+        #             consensus_prediction_source = "truncation_rule"
+        #     if consensus_pathogenecity is None:
+        #         if oncokb_oncogenic == "Oncogenic" or oncokb_oncogenic == "Likely Oncogenic":
+        #             consensus_path = True
+        #             consensus_prediction_source = "OncoKB"
+        #         elif oncokb_oncogenic == "non-Oncogenic": 
+        #             consensus_path = False
+        #             consensus_prediction_source = "OncoKB"
+        # if consensus_path = None:
+        #     if cgi_oncogenic == "Oncogenic" or cgi_oncogenic == "Likely Oncogenic":
+        #             consensus_path = True
+        #             consensus_prediction_source = "CGI"
+        # if consensus_path = None:
+        #     consensus_path = True if (am_score >= 0.5 or (polyphen_score + sift_score >= 0.05)) else False
+        #     consensus_prediction_source = "missense_prediction_algorithms"
+        
 
-        somatic_mutations['consequence'] = ""
-        somatic_mutations['oncogenic'] = ""
+        somatic_mutations['oncokb_consequence'] = ""
+        somatic_mutations['oncokb_oncogenic'] = ""
         somatic_mutations['mutationEffectDescription'] = ""
         somatic_mutations['gene_role'] = ""
         somatic_mutations['citationPMids'] = ""
@@ -88,25 +119,32 @@ def main(**kwargs):
     if kwargs["cgiquery"] and kwargs["somatic_variants"]:
         somatic_mutations = pd.read_csv(kwargs["somatic_variants"], sep="\t", dtype='string')
 
+        somatic_mutations['cgi_oncogenic'] = ""
         if kwargs["cgijobid"]:
             jobid = kwargs["cgijobid"]
             while query_cgi_job(jobid, output, somatic_mutation_annotations=somatic_mutations) == 0:
                 print("Waiting 30 seconds for the next try...")
                 time.sleep(30)
         else:
-            # Query in chunks of 5000
-            chunks = [somatic_mutations[x:x + 5000] for x in range(0, len(somatic_mutations), 5000)]
-            i = 0
-            for c in chunks:
-                i += 1
-
-                generate_temp_cgi_query_files(somatic_mutation_annotations=c)
-                jobid = launch_cgi_job_with_mulitple_variant_types(mutations_file="./tmp/somatic_mutations.ext", cancer_type="CANCER", reference="hg38")#.replace('"', '')
-                time.sleep(30)
+            jobid = launch_cgi_job_with_mulitple_variant_types(mutations_file="./tmp/somatic_mutations.ext", cancer_type="CANCER", reference="hg38")#.replace('"', '')
+            time.sleep(30)
             
-                while query_cgi_job(jobid, output, somatic_mutation_annotations=c, mode="a") == 0:
-                    print("Waiting 30 seconds for the next try...")
-                    time.sleep(30)
+            while query_cgi_job(jobid, output, somatic_mutation_annotations=somatic_mutations) == 0:
+                print("Waiting 30 seconds for the next try...")
+                time.sleep(30)
+            # # Query in chunks of 5000
+            # chunks = [somatic_mutations[x:x + 5000] for x in range(0, len(somatic_mutations), 5000)]
+            # i = 0
+            # for c in chunks:
+            #     i += 1
+
+            #     generate_temp_cgi_query_files(somatic_mutation_annotations=c)
+            #     jobid = launch_cgi_job_with_mulitple_variant_types(mutations_file="./tmp/somatic_mutations.ext", cancer_type="CANCER", reference="hg38")#.replace('"', '')
+            #     time.sleep(30)
+            
+            #     while query_cgi_job(jobid, output, somatic_mutation_annotations=c, mode="a") == 0:
+            #         print("Waiting 30 seconds for the next try...")
+            #         time.sleep(30)
 
     if kwargs["cgiquery"] and kwargs["copy_number_alterations"]:
         cnas = pd.read_csv(kwargs["copy_number_alterations"], sep="\t", dtype='string')

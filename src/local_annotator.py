@@ -9,6 +9,7 @@ from utils import df_apply
 from somatic_variant_annotator import SomaticVariantAnnotator
 from config import CGI_DEFAULT_CANCER_TYPE, CGI_DEFAULT_REFERENCE
 
+# TODO: short mutations D505 KIT NRAS not found, why filtered out??
 
 '''
     Usage: local_annotator.py [OPTIONS]
@@ -75,6 +76,9 @@ def process_copy_number_alterations(kwargs):
     annotator = CopyNumberAnnotator(refgenome=refgenome, tumortype=tumortype, ascats=ascats, ploidy_coeff=ploidy_coeff, sample_info=sample_info)
     
     cnas_filtered = df_apply(cna_data, annotator.filter_cnas_by_ploidy).dropna()
+    if cnas_filtered.empty:
+        print(f"DEBUG: No output rows written to {output}. All {len(cna_data)} input rows were filtered out. Check debug messages above for per-row reasons.")
+        return
     cnadf = pd.DataFrame(dict(zip(cnas_filtered.index, cnas_filtered.values))).T
     cnadf.to_csv(output, sep='\t')
 

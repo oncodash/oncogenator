@@ -92,7 +92,7 @@ class SomaticVariantAnnotator:
                 isoforms.append(isoform)
         return list(dict.fromkeys(isoforms))
 
-    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, ensemble_id="", depth=0, AM_class="", amisscore=0.0, classification="", pathogenecity="", expressed=False, refCount=0, altCount=0):
+    def create_somatic_mutation_annotation(self, row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, ensemble_id="", depth=0, polyphen_score="", polyphen_category="", AM_class="", AM_score="", sift_score="", sift_category="", classification="", consensus_pathogenecity=None, consensus_pathogenecity_source=None, expressed=False, refCount=0, altCount=0):
         """
                 Create an somatic_mutation annotation.
 
@@ -116,7 +116,11 @@ class SomaticVariantAnnotator:
                 ad1 (int): Allele depth for alternate allele.
                 depth (int): Total depth.
                 AM_class (str): AMIS category.
-                amisscore (float): AMIS score.
+                AM_score (float): AMIS score.
+                polyphen_score (float): PolyPhen score.
+                polyphen_category (str): PolyPhen category.
+                sift_score (float): SIFT score.
+                sift_category (str): SIFT category.
 
                 Returns:
                 Series: A Series containing the somatic_mutation annotation.
@@ -142,7 +146,8 @@ class SomaticVariantAnnotator:
             'hugoSymbol': gene,
             'alteration': alteration,
             'tumorType': tumor_type,
-            'consequence': consequence,
+            'consequence': handle_string_field(classification).lower() if handle_string_field(classification) else "",
+            'annovar_consequence': consequence,
             'cytoBand': handle_string_field(row['cytoBand']),
             'exonicFuncMane': handle_string_field(row["ExonicFunc.MANE"]),
             'funcMane': handle_string_field(row['Func.MANE']),
@@ -164,19 +169,20 @@ class SomaticVariantAnnotator:
             'cadd_score': handle_decimal_field(row["CADD_phred"]),
             'ada_score': handle_decimal_field(row["dbscSNV_ADA_SCORE"]),
             'rf_score': handle_decimal_field(row["dbscSNV_RF_SCORE"]),
-            'sift_category': handle_string_field(row["SIFTcat"]),
-            'sift_score': handle_string_field(row["SIFTval"]),
-            'polyphen_category': handle_string_field(row["PolyPhenCat"]),
-            'polyphen_score': handle_string_field(row["PolyPhenVal"]),
-            'AM_class': handle_string_field(AM_class),
-            'AM_score': handle_decimal_field(amisscore),
+            'sift_category': sift_category,
+            'sift_score': sift_score,
+            'polyphen_category': polyphen_category,
+            'polyphen_score': polyphen_score,
+            'AM_class': AM_class,
+            'AM_score': AM_score,
             'cosmic_id': handle_string_field(row["COSMIC_ID"]),
             'clinvar_id': handle_string_field(row["CLNALLELEID"]),
             'clinvar_sig': handle_string_field(row["CLNSIG"]), 
             'clinvar_assoc': handle_string_field(row["CLNDN"]), 
             'clinvar_status': handle_string_field(row["CLNREVSTAT"]),
-            'classification': handle_string_field(classification),
-            'pathogenecity': handle_string_field(pathogenecity),
+            #'classification': handle_string_field(classification),
+            'consensus_pathogenecity': consensus_pathogenecity,
+            'consensus_pathogenecity_source': consensus_pathogenecity_source,
             'refCount': refCount,
             'altCount': altCount,
             'expressed': expressed
@@ -203,10 +209,7 @@ class SomaticVariantAnnotator:
         somatic_mutation_annotations = []
 		
         print(row)
-        AM_score = row['AM_score']
-        AM_class = row['AM_class']
-        pathogenecity = handle_string_field(row["CLNSIG"])
-
+        
         exonicFuncMane = handle_string_field(row["ExonicFunc.MANE"])
         funcMane = handle_string_field(row["Func.MANE"])
         funcRefgene = handle_string_field(row["Func.refGene"])
@@ -214,7 +217,8 @@ class SomaticVariantAnnotator:
         rf_score = handle_decimal_field(row["dbscSNV_RF_SCORE"])
 
         for sample_id in self.samples:
-            # TODO filter by sample info
+
+            # Check sample info filters if provided
             passes_sample_info_filters = True
             if self.sample_info is not None:
                 sinfo = self.sample_info.loc[self.sample_info['sample'] == sample_id]
@@ -233,7 +237,7 @@ class SomaticVariantAnnotator:
             siteid = sample_name_split[1]
 
             rna_expression = None
-            #Add rna expression data if available
+            # Add rna expression data if available
             if self.rna_path:
                 for rna_num in range(1, 6):  # Try RNA1 through RNA5
                     try:
@@ -244,14 +248,15 @@ class SomaticVariantAnnotator:
                             break
                     except Exception as e:
                         print(f"No RNA expression data found {rna_path}. Error: {e}")
-                        continue
+                        pass
                 
                 if rna_expression is None or len(rna_expression) == 0:
                     print(f"No RNA expression data found for sample {sample_id}")
                     
 
-            tfs = self.ascats.loc[self.ascats['sample'] == sample_id]['purity']
-            tf = tfs.iloc[0] if len(tfs) > 0 else 0.0
+            purities = self.ascats.loc[self.ascats['sample'] == sample_id]['purity']
+            purity = purities.iloc[0] if len(purities) > 0 else 0.0
+
             try:
                 depth = int(row[str(sample_id)+".DP"])
                 ad0 = int(row[str(sample_id)+".AD"].split(',')[0])
@@ -260,14 +265,28 @@ class SomaticVariantAnnotator:
                 print(f"Sample not found from somatic variants. Error processing sample {sample_id}: {e}")
                 continue
 
+            # Get genes associated with the variant from both MANE and refGene annotations    
             geneMANE = re.split(r'[;,\s]+', handle_string_field(row["Gene.MANE"]))
             genes = set(geneMANE)
             geneRefGene = re.split(r'[;,\s]+', handle_string_field(row["Gene.refGene"]))
             for g in geneRefGene:
                 genes.add(g)
-
+            i = 0
             for gene in genes:
-                
+                AM_score = row['AM_score'].split(',')[i] if ',' in str(row['AM_score']) and len(row['AM_score'].split(',')) > i else row['AM_score']
+                AM_class = row['AM_class'].split(',')[i] if ',' in str(row['AM_class']) and len(row['AM_class'].split(',')) > i else row['AM_class']
+                pathogenecity = handle_string_field(row["CLNSIG"].split(',')[i] if ',' in str(row["CLNSIG"]) and len(row["CLNSIG"].split(',')) > i else row["CLNSIG"])
+                polyphen_score = handle_decimal_field(row["PolyPhenVal"].split(',')[i] if ',' in str(row["PolyPhenVal"]) and len(row["PolyPhenVal"].split(',')) > i else row["PolyPhenVal"])
+                sift_score = handle_decimal_field(row["SIFTval"].split(',')[i] if ',' in str(row["SIFTval"]) and len(row["SIFTval"].split(',')) > i else row["SIFTval"])
+                sift_category = handle_string_field(row["SIFTcat"].split(',')[i] if ',' in str(row["SIFTcat"]) and len(row["SIFTcat"].split(',')) > i else row["SIFTcat"])
+                poylphen_category = handle_string_field(row["PolyPhenCat"].split(',')[i] if ',' in str(row["PolyPhenCat"]) and len(row["PolyPhenCat"].split(',')) > i else row["PolyPhenCat"])
+                consensus_pathogenecity, consensus_prediction_source = get_consensus_pathogenecity_prediction(
+                    clinvar_pathogenecity=pathogenecity,
+                    am_score=AM_score,
+                    polyphen_score=polyphen_score,
+                    sift_score=sift_score,
+                )
+                # Get CNA data for the sample and gene
                 vcnas = self.get_variant_assoc_cnas(self.cnas, sample_id, gene)
                 ensemble_id = handle_string_field(vcnas["ID"]) if len(vcnas) > 0 else None
                 nMajor = handle_cn_field(vcnas['nMajor']) if len(vcnas) > 0 else None
@@ -280,20 +299,23 @@ class SomaticVariantAnnotator:
                 expHom_pbinom_lower = 0.0
                 homogenous = None
 
+                # Calculate homogeneity estimate if CNA data is available
+                # TODO: DOn't filter by homogeneity just show in frontend
                 if nMajor and nMinor:
                     cn = float(nMinor) + float(nMajor)
-                    expHomAF = float(self.expectedAF(cn, cn, tf))
+                    expHomAF = float(self.expectedAF(cn, cn, purity))
                     expHomCI_lo = float(stats.binom.ppf(0.025, depth, expHomAF))
                     expHomCI_hi = float(stats.binom.ppf(0.975, depth, expHomAF))
                     expHomCI_cover = expHomCI_lo <= ad1
                     expHom_pbinom_lower = float(stats.binom.cdf(ad1, depth, expHomAF))
                     homogenous = expHom_pbinom_lower > self.homogeneity_threshold
 
-                if homogenous and exonicFuncMane == "nonsynonymous_SNV":
+                # Classify variant based on gene function and homogeneity
+                if exonicFuncMane == "nonsynonymous_SNV":
                     sv_class = "Missense"
                 if exonicFuncMane in ["frameshift_insertion", "frameshift_deletion", "stopgain"]:
                     sv_class = "Truncating"
-                if exonicFuncMane == ["nonframeshift_deletion", "nonframeshift_substitution", "nonframeshift_insertion"]:
+                if exonicFuncMane in ["nonframeshift_deletion", "nonframeshift_substitution", "nonframeshift_insertion"]:
                     sv_class = "Other"
                 consequence = exonicFuncMane
                 if not sv_class:
@@ -315,7 +337,7 @@ class SomaticVariantAnnotator:
                 # Expression threshold: altCount > 5
                     expressed = True if (altCount) > expression_threshold else False       
                 if sv_class:
-                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, ensemble_id=ensemble_id,depth=depth, AM_class=AM_class, amisscore=AM_score, classification=sv_class, pathogenecity=pathogenecity, expressed=expressed, refCount=refCount, altCount=altCount))  
+                    somatic_mutation_annotations.append(self.create_somatic_mutation_annotation(row, pid, sample_id, gene, alteration, consequence, nMinor, nMajor, lohstatus, expHomAF, expHomCI_lo, expHomCI_hi, expHom_pbinom_lower, homogenous, ad0, ad1, ensemble_id=ensemble_id,depth=depth, AM_class=AM_class, AM_score=AM_score, polyphen_score=polyphen_score, polyphen_category=poylphen_category, sift_score=sift_score, sift_category=sift_category, classification=sv_class, consensus_pathogenecity=consensus_pathogenecity, consensus_pathogenecity_source=consensus_prediction_source, expressed=expressed, refCount=refCount, altCount=altCount))  
 
         return somatic_mutation_annotations
 
@@ -387,74 +409,3 @@ class SomaticVariantAnnotator:
 
         return row
 
-
-    def post_filter_and_classify_somatic_mutations_by_sample(self, row):
-        """
-                Post-filter and classify somatic_mutations by sample based on various criteria.
-
-                Parameters:
-                row (Series): A row from a DataFrame containing somatic_mutation data.
-
-                Returns:
-                Series: A Series containing the updated somatic_mutation data.
-        """
-        try:
-
-            exonicFuncMane = handle_string_field(row["exonicFuncMane"])
-            sample_id = row['sample_id']
-
-            # Calculate homogeneity estimate
-            tfs = self.ascats.loc[self.ascats['sample'] == sample_id]['purity'] # Tumor fraction = purity of the tumor
-            tf = tfs.iloc[0] if len(tfs) > 0 else 0.0  # loc[ascats['sample'] == sample_id]['purity'].values[0]
-            ad0 = int(row['ad0'])
-            ad1 = int(row['ad1'])
-            depth = ad0 + ad1
-            gene = handle_string_field(row["hugoSymbol"])
-
-            nMajor = None
-            nMinor = None
-            lohstatus = None
-            pathogenecity = handle_string_field(row["CLNSIG"])
-            vcnas = self.get_variant_assoc_cnas(self.cnas, sample_id, gene)
-            nMajor = handle_cn_field(vcnas['nMajor']) if len(vcnas) > 0 else None
-            nMinor = handle_cn_field(vcnas['nMinor']) if len(vcnas) > 0 else None
-            lohstatus = vcnas['LOHstatus'] if len(vcnas) > 0 else None
-            expHomAF = 0.0
-            expHomCI_lo = 0.0
-            expHomCI_hi = 0.0
-            expHom_pbinom_lower = 0.0
-            homogenous = None
-
-            if nMajor and nMinor:
-                cn = int(nMinor) + int(nMajor)
-                expHomAF = float(self.expectedAF(cn, cn, tf))
-                expHomCI_lo = float(stats.binom.ppf(0.025, depth, expHomAF))
-                expHomCI_hi = float(stats.binom.ppf(0.975, depth, expHomAF))
-                expHomCI_cover = expHomCI_lo <= ad1
-                expHom_pbinom_lower = float(stats.binom.cdf(ad1, depth, expHomAF))
-                homogenous = expHom_pbinom_lower > self.homogeneity_threshold
-
-            if homogenous == True and row['classification'] == "Truncating":
-                pathogenecity = "Pathogenic"
-
-            row['nMinor'] = nMinor
-            row['nMajor'] = nMajor
-            row['lohstatus'] = lohstatus
-            row['hom_lo'] = "{:.9f}".format(expHomCI_lo),
-            row['hom_hi'] = "{:.9f}".format(expHomCI_hi),
-            row['hom_pbinom_lo'] = "{:.9f}".format(expHom_pbinom_lower),
-            row['homogenous'] = homogenous
-            row['pathogenecity'] = pathogenecity
-            row['af'] = expHomAF
-            if homogenous and exonicFuncMane == "nonsynonymous_SNV":
-                row['classification'] = "Missense"
-            row['hom_lo'] = row['hom_lo'][0] if isinstance(row['hom_lo'], tuple) else row['hom_lo']
-            row['hom_hi'] = row['hom_hi'][0] if isinstance(row['hom_hi'], tuple) else row['hom_hi']
-            row['hom_pbinom_lo'] = row['hom_pbinom_lo'][0] if isinstance(row['hom_pbinom_lo'], tuple) else row[
-                'hom_pbinom_lo']
-
-        except Exception as e:
-            print(e)
-            pass
-
-        return row

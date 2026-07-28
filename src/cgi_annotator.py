@@ -300,16 +300,29 @@ def query_cgi_job(jobid, output, somatic_mutation_annotations: pd.DataFrame = No
                     snv_lookup_df = pd.DataFrame.from_dict(cgi_snv_lookup, orient='index').reset_index().rename(columns={'index': 'sample_id'})
                     snv_updates = snv_updates.merge(snv_lookup_df, on='sample_id', how='left')
 
-                    snv_valid = snv_updates.loc[snv_updates['CGI-Oncogenic Summary'].notna()]
+                    snv_valid = snv_updates #.loc[snv_updates['CGI-Oncogenic Summary'].notna()]
                     if not snv_valid.empty:
-                        somatic_mutation_annotations.loc[snv_valid['index'], 'consequence'] = snv_valid['CGI-Consequence'].apply(handle_string_field).values
-                        somatic_mutation_annotations.loc[snv_valid['index'], 'oncogenic'] = snv_valid['CGI-Oncogenic Summary'].apply(handle_string_field).values
-                        somatic_mutation_annotations.loc[snv_valid['index'], 'gene_role'] = snv_valid['CGI-Oncogenic Prediction'].apply(handle_string_field).values
+                        #somatic_mutation_annotations.loc[snv_valid['index'], 'consequence'] = snv_valid['CGI-Consequence'].apply(handle_string_field).values
+                        somatic_mutation_annotations.loc[snv_valid['index'], 'cgi_oncogenic'] = snv_valid['CGI-Oncogenic Summary'].apply(handle_string_field).values
+                        for idx in snv_valid['index']:
+                            sm_row = somatic_mutation_annotations.loc[idx]
+                            if sm_row['consensus_pathogenecity_source'] is not None and sm_row['consensus_pathogenecity_source'] == "ClinVar":
+                                consensus_pathogenecity = sm_row['consensus_pathogenecity']
+                                consensus_prediction_source = sm_row['consensus_pathogenecity_source'] 
+                            else:  
+                                consensus_pathogenecity, consensus_prediction_source = get_consensus_pathogenecity_prediction(
+                                    clinvar_pathogenecity=handle_string_field(sm_row['clinvar_pathogenecity']) if 'clinvar_pathogenecity' in sm_row else None,
+                                    consensus_pathogenecity_source=handle_string_field(sm_row['consensus_pathogenecity_source']) if 'consensus_pathogenecity_source' in sm_row else None,
+                                    cgi_oncogenic=handle_string_field(sm_row['cgi_oncogenic']) if 'cgi_oncogenic' in sm_row else None
+                                )
+                            somatic_mutation_annotations.at[idx, 'consensus_pathogenecity'] = consensus_pathogenecity
+                            somatic_mutation_annotations.at[idx, 'consensus_pathogenecity_source'] = consensus_prediction_source
+                        #somatic_mutation_annotations.loc[snv_valid['index'], 'gene_role'] = snv_valid['CGI-Oncogenic Prediction'].apply(handle_string_field).values
 
         if isinstance(somatic_mutation_annotations, pd.DataFrame):
-            somatic_mutation_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'consequence', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])
+            somatic_mutation_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'consequence', 'annovar_consequence', 'oncokb_consequence', 'oncokb_oncogenic', 'cgi_oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary',  'expressed', 'refCount', 'altCount', 'consensus_pathogenecity', 'consensus_pathogenecity_source'])
             trdf = pd.DataFrame(treatments)
-            trdf.to_csv("treatments.csv", mode="a", index=False, sep="\t")
+            trdf.to_csv("treatments.csv", mode=mode, index=False, sep="\t")
 
         if isinstance(cna_annotations, pd.DataFrame):
             cna_annotations.to_csv(output, mode=mode, index=False, sep="\t", columns=['patient_id', 'sample_id', 'alteration', 'hugoSymbol', 'ensembl_id', 'tumorType', 'oncogenic', 'mutationEffectDescription', 'gene_role', 'citationPMids', 'geneSummary', 'variantSummary', 'tumorTypeSummary'])

@@ -16,7 +16,7 @@ def handle_boolean_field(value, field=None, default=False):
 
 
 def handle_float_field(value):
-    return None if pd.isna(value) or str(value) == "." else float(value.replace(",", "."))
+    return None if pd.isna(value) or str(value) == "." or str(value).upper() == "NA"else float(value.replace(",", "."))
 
 
 def handle_cn_type_field(value):
@@ -29,15 +29,15 @@ def handle_cn_type_field(value):
 
 
 def handle_string_field(value):
-    return None if pd.isna(value) or str(value) == "." else value
+    return None if pd.isna(value) or str(value) == "." or str(value).upper() == "NA" else value
 
 
 def handle_cn_field(value):
-    return None if pd.isna(value) or str(value) == "." else value
+    return None if pd.isna(value) or str(value) == "." or str(value).upper() == "NA"else value
 
 
 def handle_int_field(value):
-    return None if pd.isna(value) or str(value) == "." else value
+    return None if pd.isna(value) or str(value) == "." or str(value).upper() == "NA" else int(value)
 
 
 def handle_date_field(value):
@@ -45,7 +45,56 @@ def handle_date_field(value):
 
 
 def handle_decimal_field(value):
-    return None if pd.isna(value) or str(value) == "." else value
+    return None if pd.isna(value) or str(value) == "." or str(value).upper() == "NA" else float(value)
+
+
+def get_consensus_pathogenecity_prediction(
+    clinvar_pathogenecity=None,
+    consensus_pathogenecity_source=None,
+    gene_role=None,
+    consequence=None,
+    oncokb_oncogenic=None,
+    cgi_oncogenic=None,
+    am_score=None,
+    polyphen_score=None,
+    sift_score=None,
+):
+    clinvar_sig = str(clinvar_pathogenecity).strip().lower() if clinvar_pathogenecity is not None else None
+    if clinvar_sig in ["pathogenic", "likely_pathogenic"]:
+        return True, "ClinVar"
+    if clinvar_sig in ["benign", "likely_benign"]:
+        return False, "ClinVar"
+
+    if consensus_pathogenecity_source != "ClinVar":
+        if gene_role == "Loss-of-function" and consequence in ["truncating", "splicing"]: # Likely Loss-of-function
+            return True, "truncation_rule"
+        
+        oncokb_sig = str(oncokb_oncogenic).strip().lower() if oncokb_oncogenic is not None else None
+        if oncokb_sig in ["oncogenic", "likely oncogenic", "resistance"]:
+            return True, "OncoKB"
+        if oncokb_sig in ["likely neutral"]:
+            return False, "OncoKB"
+
+    if consensus_pathogenecity_source != "ClinVar" and consensus_pathogenecity_source != "OncoKB" and consensus_pathogenecity_source != "truncation_rule":
+            cgi_sig = str(cgi_oncogenic).strip().lower() if cgi_oncogenic is not None else None
+            if cgi_sig in ["oncogenic","oncogenic (predicted)","likely oncogenic"]:
+                return True, "CGI"
+            if cgi_sig in ["non-oncogenic"]:
+                return False, "CGI"
+    if consensus_pathogenecity_source != "ClinVar" and consensus_pathogenecity_source != "OncoKB" and consensus_pathogenecity_source != "truncation_rule" and consensus_pathogenecity_source != "CGI":  
+        if handle_decimal_field(am_score) is not None and handle_decimal_field(am_score) >= 0.5:
+            return True, "missense_prediction_algorithms"
+
+        prediction_scores = []
+        if handle_decimal_field(polyphen_score) is not None:
+            prediction_scores.append(handle_decimal_field(polyphen_score))
+        if handle_decimal_field(sift_score) is not None:
+            prediction_scores.append(handle_decimal_field(sift_score))
+        if len(prediction_scores) > 0:
+            consensus_pathogenecity = sum(prediction_scores) >= 0.5
+            return consensus_pathogenecity, "missense_prediction_algorithms"
+
+    return None, None
 
 
 def df_apply(

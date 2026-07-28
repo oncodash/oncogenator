@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=5G
 ##SBATCH --partition=hautaniemi-epouta
+#SBATCH --partition=small
 
 echo $1
 ODANNOTATOR_PATH="/mnt/storageBig8/home/aimaaral/dev/oncogenator"
