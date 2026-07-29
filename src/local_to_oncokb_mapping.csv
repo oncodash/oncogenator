@@ -1,0 +1,14 @@
+local,oncokb
+referenceGenome,NCBI_Build
+hugoSymbol,Hugo_Symbol
+exonicFuncMane,Variant_Classification
+sample_id,Tumor_Sample_Barcode
+AAChangeMANE,HGVSp_Short
+,HGVSp
+,HGVSg
+chromosome,Chromosome
+position,Start_Position
+position,End_Position
+reference_allele,Reference_Allele
+sample_allele,Tumor_Seq_Allele1
+sample_allele,Tumor_Seq_Allele2
