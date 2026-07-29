@@ -60,8 +60,7 @@ Options:
   --cgijobid <str>                   Download results from CGI by jobid.
 ```
 
-### Examples
-Local Annotator
+### Local Annotator
 1. Annotate somatic variants and CNAs using the local annotator:
 > cd src
 > python main.py --annotator local --output path/to/output --somatic_variants path/to/snvs.tsv --ascatestimates path/to/ascat.tsv
@@ -69,7 +68,7 @@ Local Annotator
 2. Annotate CNAs using the local annotator:
 > python main.py --annotator local --output path/to/output --copy_number_alterations path/to/cnas.tsv --ascatestimates path/to/ascat.tsv
 
-External Annotator (execution order is important as the CGI annotations are supplementing the OncoKB annotations in default)
+### External Annotator (execution order is important as the CGI annotations are supplementing the OncoKB annotations in default)
 3. Annotate CNAs using OncoKB:
 > python main.py --annotator external --output path/to/output --oncokbcna --copy_number_alterations path/to/locally_annotated_cnas.csv
 
@@ -91,16 +90,25 @@ Submit a batch job to SLURM cluster to annotate on multiple computing nodes:
 >./slurm_scripts/snv_annotation.sbatch path/to/sample_list.txt
 
 
-Annotate with [oncokb](https://github.com/oncokb/oncokb-annotator) CLI annotator (Optional) 
+### Annotate with [oncokb](https://github.com/oncokb/oncokb-annotator) CLI annotator (Optional) 
 >git clone https://github.com/oncokb/oncokb-annotator.git
->cd oncokb-annotator 
+
+>cd oncokb-annotator
+
 >pip install -r requirements/common.txt -r requirements/pip3.txt
+
 >cd ..
-Convert local annotations to oncokb-annotator format
+
+### Convert local annotations to oncokb-annotator format
+
 >python src/convert_cnas4oncokb_annotator.py --input path/to/locally_annotated_cnas.csv --output to_oncokb_annotator_cnas.tsv
+
 >python oncokb-annotator/CnaAnnotator.py -i to_oncokb_annotator_cnas.tsv -o cnas_oncokb_annotator.tsv -b <YOUR ONCOKB TOKEN>
-Check matching columns in src/local_to_oncokb_mapping.csv
+
+### Check matching columns in src/local_to_oncokb_mapping.csv
+
 >python src/convert_snvs4oncokb_annotator.py -i path/to/locally_annotated_snvs.csv -o to_oncokb_annotator_snvs.tsv --mapping src/local_to_oncokb_mapping.csv
+
 >python oncokb-annotator/MafAnnotator.py -i to_oncokb_annotator_snvs.tsv -o snvs_oncokb_annotator.tsv -b <YOUR ONCOKB TOKEN>
 
 
