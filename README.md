@@ -63,6 +63,7 @@ Options:
 ### Examples
 Local Annotator
 1. Annotate somatic variants and CNAs using the local annotator:
+> cd src
 > python main.py --annotator local --output path/to/output --somatic_variants path/to/snvs.tsv --ascatestimates path/to/ascat.tsv
 
 2. Annotate CNAs using the local annotator:
@@ -70,17 +71,17 @@ Local Annotator
 
 External Annotator (execution order is important as the CGI annotations are supplementing the OncoKB annotations in default)
 3. Annotate CNAs using OncoKB:
-> python main.py --annotator external --output path/to/output --oncokbcna --copy_number_alterations path/to/locally_annotated_cnas.tsv
+> python main.py --annotator external --output path/to/output --oncokbcna --copy_number_alterations path/to/locally_annotated_cnas.csv
 
 4. Annotate somatic variants using OncoKB:
->python main.py --annotator external --output path/to/output --oncokbsnv --somatic_variants path/to/locally_annotated_snvs.tsv
+>python main.py --annotator external --output path/to/output --oncokbsnv --somatic_variants path/to/locally_annotated_snvs.csv
 
 5. Annotate CNAs using Cancer Genome Interpreter:
 
->python external_annotator.py --cgiquery --copy_number_alterations path/to/oncokb_annotated_cnas.tsv
+>python external_annotator.py --cgiquery --copy_number_alterations path/to/oncokb_annotated_cnas.csv
 
 6. Annotate somatic variants using Cancer Genome Interpreter:
->python main.py --annotator external --output path/to/output --cgiquery --somatic_variants path/to/oncokb_annotated_snvs.tsv
+>python main.py --annotator external --output path/to/output --cgiquery --somatic_variants path/to/oncokb_annotated_snvs.csv
 
 SLURM Scripts: edit the scripts to set the correct paths and SLURM sbatch parameters.
 
@@ -88,3 +89,19 @@ Submit a batch job to SLURM cluster to annotate on multiple computing nodes:
 >./slurm_scripts/annotate_cnas.sh path/to/sample_list.txt
 
 >./slurm_scripts/snv_annotation.sbatch path/to/sample_list.txt
+
+
+Annotate with [oncokb](https://github.com/oncokb/oncokb-annotator) CLI annotator (Optional) 
+>git clone https://github.com/oncokb/oncokb-annotator.git
+>cd oncokb-annotator 
+>pip install -r requirements/common.txt -r requirements/pip3.txt
+>cd ..
+Convert local annotations to oncokb-annotator format
+>python src/convert_cnas4oncokb_annotator.py --input path/to/locally_annotated_cnas.csv --output to_oncokb_annotator_cnas.tsv
+>python oncokb-annotator/CnaAnnotator.py -i to_oncokb_annotator_cnas.tsv -o cnas_oncokb_annotator.tsv -b <YOUR ONCOKB TOKEN>
+Check matching columns in src/local_to_oncokb_mapping.csv
+>python src/convert_snvs4oncokb_annotator.py -i path/to/locally_annotated_snvs.csv -o to_oncokb_annotator_snvs.tsv --mapping src/local_to_oncokb_mapping.csv
+>python oncokb-annotator/MafAnnotator.py -i to_oncokb_annotator_snvs.tsv -o snvs_oncokb_annotator.tsv -b <YOUR ONCOKB TOKEN>
+
+
+
